@@ -15,12 +15,19 @@ interface TokenFormData {
     revokeFreezeAuth: boolean;
     revokeUpdateAuth: boolean;
     customCreator: boolean;
+    creatorAddress: string;
+    creatorName: string;
+    telegramLink: string;
+    twitterLink: string;
+    websiteLink: string;
 }
 
 export function TokenCreationForm() {
     const { publicKey, signTransaction } = useWallet();
     const { connection } = useConnection();
     const [isLoading, setIsLoading] = useState(false);
+    const [showCreatorInfo, setShowCreatorInfo] = useState(false);
+    const [showSocialLinks, setShowSocialLinks] = useState(false);
     const [formData, setFormData] = useState<TokenFormData>({
         name: '',
         symbol: '',
@@ -28,13 +35,18 @@ export function TokenCreationForm() {
         supply: 1000000,
         description: '',
         image: null,
-        revokeMintAuth: false,
-        revokeFreezeAuth: false,
-        revokeUpdateAuth: false,
+        revokeMintAuth: true, // Default to true
+        revokeFreezeAuth: true, // Default to true
+        revokeUpdateAuth: true, // Default to true
         customCreator: false,
+        creatorAddress: '',
+        creatorName: '',
+        telegramLink: '',
+        twitterLink: '',
+        websiteLink: '',
     });
 
-    const baseCost = 0.1; // SOL
+    const baseCost = 0.2; // SOL
     const premiumFeeCost = 0.1; // SOL per premium feature
 
     const calculateTotalCost = () => {
@@ -42,8 +54,22 @@ export function TokenCreationForm() {
         if (formData.revokeMintAuth) total += premiumFeeCost;
         if (formData.revokeFreezeAuth) total += premiumFeeCost;
         if (formData.revokeUpdateAuth) total += premiumFeeCost;
-        if (formData.customCreator) total += premiumFeeCost;
+        if (showCreatorInfo) total += premiumFeeCost;
+        if (showSocialLinks) total += premiumFeeCost;
         return total;
+    };
+
+    // Validate Solana address format
+    const isValidSolanaAddress = (address: string): boolean => {
+        try {
+            // Basic validation: should be 32-44 characters and base58
+            if (address.length < 32 || address.length > 44) return false;
+            // Check if it contains only valid base58 characters
+            const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+            return base58Regex.test(address);
+        } catch {
+            return false;
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -58,7 +84,9 @@ export function TokenCreationForm() {
         const { name, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: checked
+            [name]: checked,
+            // Clear creator address if Custom Creator is unchecked
+            ...(name === 'customCreator' && !checked ? { creatorAddress: '', creatorName: '' } : {})
         }));
     };
 
@@ -77,13 +105,22 @@ export function TokenCreationForm() {
             return;
         }
 
+        // Validate custom creator address if Creator's Info is enabled
+        if (showCreatorInfo && formData.creatorAddress && !isValidSolanaAddress(formData.creatorAddress)) {
+            alert('Please enter a valid Solana address for the creator');
+            return;
+        }
+
         setIsLoading(true);
         try {
             await createTokenMint({
                 connection,
                 payer: publicKey,
                 signTransaction,
-                formData,
+                formData: {
+                    ...formData,
+                    customCreator: showCreatorInfo, // Use the toggle state
+                },
                 totalCost: calculateTotalCost()
             });
             alert('Token created successfully!');
@@ -161,25 +198,13 @@ export function TokenCreationForm() {
                     </div>
                 </div>
 
-                {/* Description */}
-                <div>
-                    <label className="block text-white font-medium mb-2">
-                        Description
-                    </label>
-                    <textarea
-                        name="description"
-                        value={formData.description}
-                        onChange={handleInputChange}
-                        rows={3}
-                        className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        placeholder="Describe your token..."
-                    />
-                </div>
-
                 {/* Image Upload */}
                 <div>
                     <label className="block text-white font-medium mb-2">
-                        Token Image (1000x1000 recommended)
+                        Token Image
+                        <span className="text-gray-400 text-sm ml-2">
+                            Add logo for your token or use AI to Generate one for you!
+                        </span>
                     </label>
                     <input
                         type="file"
@@ -189,62 +214,230 @@ export function TokenCreationForm() {
                     />
                 </div>
 
-                {/* Premium Options */}
+                {/* Description */}
+                <div>
+                    <label className="block text-white font-medium mb-2">
+                        Description *
+                    </label>
+                    <textarea
+                        name="description"
+                        value={formData.description}
+                        onChange={handleInputChange}
+                        required
+                        rows={3}
+                        className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="Here you can describe your token"
+                    />
+                </div>
+
+                {/* Creator's Info Toggle */}
                 <div className="border-t border-white/20 pt-6">
-                    <h3 className="text-xl font-bold text-white mb-4">Premium Options</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="revokeMintAuth"
-                                checked={formData.revokeMintAuth}
-                                onChange={handleCheckboxChange}
-                                className="w-5 h-5 text-purple-500 bg-white/20 border-white/30 rounded focus:ring-purple-500"
-                            />
-                            <span className="text-white">
-                                Revoke Mint Authority (+{premiumFeeCost} SOL)
-                            </span>
-                        </label>
-
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="revokeFreezeAuth"
-                                checked={formData.revokeFreezeAuth}
-                                onChange={handleCheckboxChange}
-                                className="w-5 h-5 text-purple-500 bg-white/20 border-white/30 rounded focus:ring-purple-500"
-                            />
-                            <span className="text-white">
-                                Revoke Freeze Authority (+{premiumFeeCost} SOL)
-                            </span>
-                        </label>
-
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="revokeUpdateAuth"
-                                checked={formData.revokeUpdateAuth}
-                                onChange={handleCheckboxChange}
-                                className="w-5 h-5 text-purple-500 bg-white/20 border-white/30 rounded focus:ring-purple-500"
-                            />
-                            <span className="text-white">
-                                Revoke Update Authority (+{premiumFeeCost} SOL)
-                            </span>
-                        </label>
-
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="customCreator"
-                                checked={formData.customCreator}
-                                onChange={handleCheckboxChange}
-                                className="w-5 h-5 text-purple-500 bg-white/20 border-white/30 rounded focus:ring-purple-500"
-                            />
-                            <span className="text-white">
-                                Custom Creator (+{premiumFeeCost} SOL)
-                            </span>
-                        </label>
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Creator's Info (Optional)</h3>
+                            <p className="text-gray-400 text-sm">
+                                Change the information of the creator in the metadata. By default, it is Luna Launch.
+                            </p>
+                        </div>
+                        <div className="flex items-center">
+                            <span className="text-purple-300 mr-3">+0.1 SOL</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showCreatorInfo}
+                                    onChange={(e) => setShowCreatorInfo(e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                            </label>
+                        </div>
                     </div>
+
+                    {/* Creator's Info Fields */}
+                    {showCreatorInfo && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-white font-medium mb-2">
+                                    Creator's Address *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="creatorAddress"
+                                    value={formData.creatorAddress}
+                                    onChange={handleInputChange}
+                                    required={showCreatorInfo}
+                                    className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="Ex: Your Solana address"
+                                />
+                                {formData.creatorAddress && !isValidSolanaAddress(formData.creatorAddress) && (
+                                    <p className="text-red-400 text-sm mt-1">
+                                        Please enter a valid Solana address
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-white font-medium mb-2">
+                                    Creator's Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="creatorName"
+                                    value={formData.creatorName}
+                                    onChange={handleInputChange}
+                                    required={showCreatorInfo}
+                                    className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="Ex: Luna Launch"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Social Links & Tags Toggle */}
+                <div className="border-t border-white/20 pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Add Social Links & Tags</h3>
+                            <p className="text-gray-400 text-sm">
+                                Add links to your token metadata.
+                            </p>
+                        </div>
+                        <div className="flex items-center">
+                            <span className="text-purple-300 mr-3">+0.1 SOL</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showSocialLinks}
+                                    onChange={(e) => setShowSocialLinks(e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Social Links Fields */}
+                    {showSocialLinks && (
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-white font-medium mb-2">
+                                    Telegram Link *
+                                </label>
+                                <input
+                                    type="url"
+                                    name="telegramLink"
+                                    value={formData.telegramLink}
+                                    onChange={handleInputChange}
+                                    required={showSocialLinks}
+                                    className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="Ex: https://t.me/lunalaunch"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-white font-medium mb-2">
+                                    Twitter or X Link *
+                                </label>
+                                <input
+                                    type="url"
+                                    name="twitterLink"
+                                    value={formData.twitterLink}
+                                    onChange={handleInputChange}
+                                    required={showSocialLinks}
+                                    className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="Ex: https://x.com/@lunalaunch"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-white font-medium mb-2">
+                                    Website Link *
+                                </label>
+                                <input
+                                    type="url"
+                                    name="websiteLink"
+                                    value={formData.websiteLink}
+                                    onChange={handleInputChange}
+                                    required={showSocialLinks}
+                                    className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="Ex: https://www.lunalaunch.com"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Revoke Authorities (Investor's Booster) */}
+                <div className="border-t border-white/20 pt-6">
+                    <h3 className="text-xl font-bold text-white mb-4">Revoke Authorities (Investor's Booster)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Revoke Freeze */}
+                        <div className="bg-white/5 rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-lg font-bold text-white">Revoke Freeze</h4>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="revokeFreezeAuth"
+                                        checked={formData.revokeFreezeAuth}
+                                        onChange={handleCheckboxChange}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                </label>
+                            </div>
+                            <p className="text-gray-300 text-sm mb-4">
+                                No one will be able to freeze holders' token accounts anymore
+                            </p>
+                            <div className="text-purple-300 font-medium">+0.1 SOL</div>
+                        </div>
+
+                        {/* Revoke Mint */}
+                        <div className="bg-white/5 rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-lg font-bold text-white">Revoke Mint</h4>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="revokeMintAuth"
+                                        checked={formData.revokeMintAuth}
+                                        onChange={handleCheckboxChange}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                </label>
+                            </div>
+                            <p className="text-gray-300 text-sm mb-4">
+                                No one will be able to create more tokens anymore
+                            </p>
+                            <div className="text-purple-300 font-medium">+0.1 SOL</div>
+                        </div>
+
+                        {/* Revoke Update */}
+                        <div className="bg-white/5 rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-lg font-bold text-white">Revoke Update</h4>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="revokeUpdateAuth"
+                                        checked={formData.revokeUpdateAuth}
+                                        onChange={handleCheckboxChange}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                </label>
+                            </div>
+                            <p className="text-gray-300 text-sm mb-4">
+                                No one will be able to modify token metadata anymore
+                            </p>
+                            <div className="text-purple-300 font-medium">+0.1 SOL</div>
+                        </div>
+                    </div>
+                    <p className="text-gray-400 text-sm mt-4">
+                        Solana Token has 3 authorities: Freeze Authority, Mint Authority, and Update Authority. Revoke them to attract more investors.
+                    </p>
                 </div>
 
                 {/* Cost Summary */}
@@ -273,9 +466,15 @@ export function TokenCreationForm() {
                                 <span>{premiumFeeCost} SOL</span>
                             </div>
                         )}
-                        {formData.customCreator && (
+                        {showCreatorInfo && (
                             <div className="flex justify-between text-white">
-                                <span>Custom Creator:</span>
+                                <span>Creator's Info:</span>
+                                <span>{premiumFeeCost} SOL</span>
+                            </div>
+                        )}
+                        {showSocialLinks && (
+                            <div className="flex justify-between text-white">
+                                <span>Social Links & Tags:</span>
                                 <span>{premiumFeeCost} SOL</span>
                             </div>
                         )}
@@ -291,7 +490,14 @@ export function TokenCreationForm() {
                 {/* Submit Button */}
                 <button
                     type="submit"
-                    disabled={isLoading || !formData.name || !formData.symbol}
+                    disabled={
+                        isLoading ||
+                        !formData.name ||
+                        !formData.symbol ||
+                        !formData.description ||
+                        (showCreatorInfo && (!formData.creatorAddress || !formData.creatorName || !isValidSolanaAddress(formData.creatorAddress))) ||
+                        (showSocialLinks && (!formData.telegramLink || !formData.twitterLink || !formData.websiteLink))
+                    }
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 px-8 rounded-lg text-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                     {isLoading ? 'Creating Token...' : `Create Token (${calculateTotalCost()} SOL)`}

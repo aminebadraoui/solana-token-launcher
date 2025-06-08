@@ -29,6 +29,7 @@ async function getDb() {
       revoke_freeze_auth BOOLEAN DEFAULT FALSE,
       revoke_update_auth BOOLEAN DEFAULT FALSE,
       custom_creator BOOLEAN DEFAULT FALSE,
+      creator_address TEXT,
       timestamp TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
             metadataUri,
             signature,
             options,
+            creatorAddress,
             timestamp,
         } = data;
 
@@ -59,6 +61,14 @@ export async function POST(request: NextRequest) {
         if (!walletAddress || !tokenMint || !name || !symbol) {
             return NextResponse.json(
                 { error: 'Missing required fields' },
+                { status: 400 }
+            );
+        }
+
+        // Validate creator address if custom creator is enabled
+        if (options?.customCreator && !creatorAddress) {
+            return NextResponse.json(
+                { error: 'Creator address is required when custom creator is enabled' },
                 { status: 400 }
             );
         }
@@ -81,8 +91,9 @@ export async function POST(request: NextRequest) {
         revoke_freeze_auth,
         revoke_update_auth,
         custom_creator,
+        creator_address,
         timestamp
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 walletAddress,
                 tokenMint,
@@ -97,6 +108,7 @@ export async function POST(request: NextRequest) {
                 options?.revokeFreezeAuth || false,
                 options?.revokeUpdateAuth || false,
                 options?.customCreator || false,
+                creatorAddress || null,
                 timestamp,
             ]
         );
@@ -111,7 +123,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Error logging token creation:', error);
         return NextResponse.json(
-            { error: 'Failed to log token creation' },
+            { error: 'Internal server error' },
             { status: 500 }
         );
     }
@@ -119,34 +131,33 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url);
-        const walletAddress = searchParams.get('wallet');
-        const limit = parseInt(searchParams.get('limit') || '50');
-        const offset = parseInt(searchParams.get('offset') || '0');
+        const url = new URL(request.url);
+        const wallet = url.searchParams.get('wallet');
+        const limit = parseInt(url.searchParams.get('limit') || '50');
+        const offset = parseInt(url.searchParams.get('offset') || '0');
 
         const db = await getDb();
 
-        let query: string;
-        let params: (string | number)[];
+        let query = `
+      SELECT 
+        id, wallet_address, token_mint, name, symbol, supply, decimals,
+        description, metadata_uri, signature,
+        revoke_mint_auth, revoke_freeze_auth, revoke_update_auth, custom_creator,
+        creator_address, timestamp, created_at
+      FROM token_creations
+    `;
+        const params: any[] = [];
 
-        if (walletAddress) {
-            query = `
-        SELECT * FROM token_creations 
-        WHERE wallet_address = ?
-        ORDER BY created_at DESC 
-        LIMIT ? OFFSET ?
-      `;
-            params = [walletAddress, limit, offset];
-        } else {
-            query = `
-        SELECT * FROM token_creations 
-        ORDER BY created_at DESC 
-        LIMIT ? OFFSET ?
-      `;
-            params = [limit, offset];
+        if (wallet) {
+            query += ' WHERE wallet_address = ?';
+            params.push(wallet);
         }
 
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        params.push(limit, offset);
+
         const tokens = await db.all(query, params);
+
         await db.close();
 
         return NextResponse.json({
@@ -155,9 +166,9 @@ export async function GET(request: NextRequest) {
             count: tokens.length,
         });
     } catch (error) {
-        console.error('Error fetching token logs:', error);
+        console.error('Error fetching token creations:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch token logs' },
+            { error: 'Internal server error' },
             { status: 500 }
         );
     }

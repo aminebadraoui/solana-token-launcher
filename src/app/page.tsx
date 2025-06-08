@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { NoSSRWrapper } from '@/components/WalletContextProvider';
 
 export default function Home() {
   return (
@@ -11,7 +12,9 @@ export default function Home() {
         <div className="text-2xl font-bold text-white">
           Solana Token Launcher
         </div>
-        <WalletMultiButton />
+        <NoSSRWrapper>
+          <WalletMultiButton />
+        </NoSSRWrapper>
       </nav>
 
       {/* Hero Section */}

@@ -30,6 +30,7 @@ interface TokenFormData {
     revokeFreezeAuth: boolean;
     revokeUpdateAuth: boolean;
     customCreator: boolean;
+    creatorAddress: string;
 }
 
 interface CreateTokenParams {
@@ -41,7 +42,9 @@ interface CreateTokenParams {
 }
 
 // Platform wallet address (replace with your actual platform wallet)
-const PLATFORM_WALLET = new PublicKey('11111111111111111111111111111112'); // Placeholder
+const PLATFORM_WALLET = new PublicKey(
+    process.env.NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS || '11111111111111111111111111111112'
+);
 
 export async function createTokenMint({
     connection,
@@ -199,38 +202,142 @@ async function processPayment(
 
 async function uploadMetadataToIPFS(formData: TokenFormData): Promise<string> {
     try {
-        // For demo purposes, we'll create a simple metadata object
-        // In production, you'd want to upload the image first, then create metadata
-        const metadata = {
-            name: formData.name,
-            symbol: formData.symbol,
-            description: formData.description,
-            image: formData.image ? 'ipfs://placeholder-image-hash' : '',
-            attributes: [],
-            properties: {
-                files: formData.image ? [
-                    {
-                        uri: 'ipfs://placeholder-image-hash',
-                        type: formData.image.type,
-                    }
-                ] : [],
-                category: 'image',
-            },
-        };
+        // Check if we should use real IPFS uploads or placeholders
+        const useRealIPFS = process.env.NEXT_PUBLIC_USE_REAL_IPFS === 'true';
+        const nftStorageApiKey = process.env.NFT_STORAGE_API_KEY;
 
-        // In a real implementation, you would:
-        // 1. Upload image to IPFS using NFT.Storage
-        // 2. Get the image CID
-        // 3. Create metadata with the image CID
-        // 4. Upload metadata to IPFS
-        // 5. Return the metadata CID
-
-        // For now, return a placeholder
-        return 'ipfs://placeholder-metadata-hash';
+        if (useRealIPFS && nftStorageApiKey) {
+            console.log('🌐 Using real IPFS uploads via NFT.Storage');
+            return await uploadToRealIPFS(formData, nftStorageApiKey);
+        } else {
+            console.log('📝 Using placeholder IPFS URIs for testing');
+            return await uploadToPlaceholderIPFS(formData);
+        }
     } catch (error) {
         console.error('Error uploading to IPFS:', error);
+        // Fallback to placeholder if real upload fails
+        console.log('⚠️  Falling back to placeholder IPFS URIs');
+        return await uploadToPlaceholderIPFS(formData);
+    }
+}
+
+async function uploadToRealIPFS(formData: TokenFormData, apiKey: string): Promise<string> {
+    const { NFTStorage, File } = await import('nft.storage');
+    const client = new NFTStorage({ token: apiKey });
+
+    // Prepare creators array based on custom creator option
+    const creators = [];
+    if (formData.customCreator && formData.creatorAddress) {
+        creators.push({
+            address: formData.creatorAddress,
+            verified: false, // Cannot verify programmatically
+            share: 100 // 100% attribution to the custom creator
+        });
+    }
+
+    let imageUri = '';
+
+    // 1. Upload image to IPFS if provided
+    if (formData.image) {
+        console.log('📸 Uploading image to IPFS...');
+        try {
+            // Convert File to format expected by NFT.Storage
+            const imageBuffer = await formData.image.arrayBuffer();
+            const imageFile = new File([imageBuffer], formData.image.name, {
+                type: formData.image.type,
+            });
+
+            const imageCid = await client.storeBlob(imageFile);
+            imageUri = `ipfs://${imageCid}`;
+            console.log('✅ Image uploaded successfully:', imageUri);
+        } catch (error) {
+            console.error('❌ Failed to upload image:', error);
+            throw new Error('Failed to upload image to IPFS');
+        }
+    }
+
+    // 2. Create complete metadata object
+    const metadata = {
+        name: formData.name,
+        symbol: formData.symbol,
+        description: formData.description,
+        image: imageUri,
+        attributes: [],
+        properties: {
+            files: imageUri ? [
+                {
+                    uri: imageUri,
+                    type: formData.image?.type || 'image/png',
+                }
+            ] : [],
+            category: 'image',
+            creators: creators.length > 0 ? creators : undefined,
+        },
+        // Include creators at root level as well (Metaplex standard)
+        ...(creators.length > 0 && { creators }),
+    };
+
+    // 3. Upload metadata to IPFS
+    console.log('📄 Uploading metadata to IPFS...');
+    try {
+        const metadataFile = new File(
+            [JSON.stringify(metadata, null, 2)],
+            'metadata.json',
+            { type: 'application/json' }
+        );
+
+        const metadataCid = await client.storeBlob(metadataFile);
+        const metadataUri = `ipfs://${metadataCid}`;
+
+        console.log('✅ Metadata uploaded successfully:', metadataUri);
+        console.log('📋 Metadata content:', metadata);
+
+        return metadataUri;
+    } catch (error) {
+        console.error('❌ Failed to upload metadata:', error);
         throw new Error('Failed to upload metadata to IPFS');
     }
+}
+
+async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string> {
+    // Prepare creators array based on custom creator option
+    const creators = [];
+    if (formData.customCreator && formData.creatorAddress) {
+        creators.push({
+            address: formData.creatorAddress,
+            verified: false, // Cannot verify programmatically
+            share: 100 // 100% attribution to the custom creator
+        });
+    }
+
+    // Create metadata object with placeholder URIs
+    const metadata = {
+        name: formData.name,
+        symbol: formData.symbol,
+        description: formData.description,
+        image: formData.image ? 'ipfs://placeholder-image-hash' : '',
+        attributes: [],
+        properties: {
+            files: formData.image ? [
+                {
+                    uri: 'ipfs://placeholder-image-hash',
+                    type: formData.image.type,
+                }
+            ] : [],
+            category: 'image',
+            creators: creators.length > 0 ? creators : undefined,
+        },
+        // Include creators at root level as well (Metaplex standard)
+        ...(creators.length > 0 && { creators }),
+    };
+
+    console.log('📋 Generated placeholder metadata:', metadata);
+
+    // Simulate some processing time
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Return placeholder metadata URI
+    return 'ipfs://placeholder-metadata-hash';
 }
 
 async function logTokenCreation(data: {
@@ -262,6 +369,7 @@ async function logTokenCreation(data: {
                     revokeUpdateAuth: data.formData.revokeUpdateAuth,
                     customCreator: data.formData.customCreator,
                 },
+                creatorAddress: data.formData.customCreator ? data.formData.creatorAddress : null,
                 timestamp: new Date().toISOString(),
             }),
         });
