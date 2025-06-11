@@ -4,11 +4,38 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 
-// Component for handling token images with fallback and multiple IPFS gateways
+// Global image cache to persist across re-renders
+const imageCache = new Map<string, {
+    status: 'loading' | 'loaded' | 'error',
+    workingUrl?: string,
+    gatewayIndex?: number
+}>();
+
+// Component for handling token images with persistent caching
 function TokenImage({ token, className }: { token: PumpFunToken; className: string }) {
-    const [imageError, setImageError] = useState(false);
-    const [imageLoading, setImageLoading] = useState(true);
-    const [currentGatewayIndex, setCurrentGatewayIndex] = useState(0);
+    const [imageState, setImageState] = useState<{
+        status: 'loading' | 'loaded' | 'error';
+        currentUrl: string;
+        gatewayIndex: number;
+    }>(() => {
+        // Initialize from cache if available
+        const cached = imageCache.get(token.mintAddress);
+        if (cached && cached.status === 'loaded' && cached.workingUrl) {
+            return {
+                status: 'loaded',
+                currentUrl: cached.workingUrl,
+                gatewayIndex: cached.gatewayIndex || 0
+            };
+        }
+
+        // Default initialization
+        const initialUrl = getImageUrl(token.imageUri, 0);
+        return {
+            status: initialUrl ? 'loading' : 'error',
+            currentUrl: initialUrl,
+            gatewayIndex: 0
+        };
+    });
 
     // Alternative IPFS gateways for fallback
     const ipfsGateways = [
@@ -18,80 +45,115 @@ function TokenImage({ token, className }: { token: PumpFunToken; className: stri
         'https://dweb.link/ipfs/',
     ];
 
-    // Get current image URL with gateway fallback
-    const getCurrentImageUrl = () => {
-        if (!token.imageUri) return '';
+    // Get image URL for specific gateway
+    function getImageUrl(imageUri: string | undefined, gatewayIndex: number): string {
+        if (!imageUri) return '';
 
-        // If it's already a full URL, use it
-        if (token.imageUri.startsWith('http')) {
-            // If it's an IPFS URL and we need to try a different gateway
-            if (token.imageUri.includes('/ipfs/') && currentGatewayIndex > 0) {
-                const hash = token.imageUri.split('/ipfs/')[1];
-                return `${ipfsGateways[currentGatewayIndex]}${hash}`;
+        // If it's already a full URL, use it (but try different gateways if needed)
+        if (imageUri.startsWith('http')) {
+            if (imageUri.includes('/ipfs/') && gatewayIndex > 0) {
+                const hash = imageUri.split('/ipfs/')[1];
+                return `${ipfsGateways[gatewayIndex]}${hash}`;
             }
-            return token.imageUri;
+            return imageUri;
         }
 
         // Handle various IPFS hash formats
-        let hash = token.imageUri;
+        let hash = imageUri;
         if (hash.startsWith('ipfs://')) {
             hash = hash.replace('ipfs://', '');
         }
 
-        return `${ipfsGateways[currentGatewayIndex]}${hash}`;
-    };
+        return `${ipfsGateways[gatewayIndex]}${hash}`;
+    }
 
-    // Reset error state when token changes
+    // Only reset if the actual imageUri changed (not on every re-render)
     useEffect(() => {
-        setImageError(false);
-        setImageLoading(true);
-        setCurrentGatewayIndex(0);
-    }, [token.imageUri]);
+        const cached = imageCache.get(token.mintAddress);
+        if (cached && cached.status === 'loaded' && cached.workingUrl) {
+            // Use cached successful result
+            setImageState({
+                status: 'loaded',
+                currentUrl: cached.workingUrl,
+                gatewayIndex: cached.gatewayIndex || 0
+            });
+            return;
+        }
+
+        // Only reinitialize if we don't have a cached result
+        const initialUrl = getImageUrl(token.imageUri, 0);
+        if (initialUrl && initialUrl !== imageState.currentUrl) {
+            setImageState({
+                status: initialUrl ? 'loading' : 'error',
+                currentUrl: initialUrl,
+                gatewayIndex: 0
+            });
+
+            // Mark as loading in cache
+            imageCache.set(token.mintAddress, { status: 'loading' });
+        }
+    }, [token.imageUri, token.mintAddress]); // Only depend on actual image URI changes
 
     const handleImageError = () => {
-        console.log(`Image failed to load for ${token.symbol} with gateway ${currentGatewayIndex}:`, getCurrentImageUrl());
+        console.log(`Image failed for ${token.symbol} (gateway ${imageState.gatewayIndex}):`, imageState.currentUrl);
 
         // Try next gateway if available
-        if (currentGatewayIndex < ipfsGateways.length - 1) {
-            setCurrentGatewayIndex(currentGatewayIndex + 1);
-            setImageLoading(true);
-            console.log(`Trying next gateway for ${token.symbol}:`, ipfsGateways[currentGatewayIndex + 1]);
+        if (imageState.gatewayIndex < ipfsGateways.length - 1) {
+            const nextGatewayIndex = imageState.gatewayIndex + 1;
+            const nextUrl = getImageUrl(token.imageUri, nextGatewayIndex);
+
+            setImageState({
+                status: 'loading',
+                currentUrl: nextUrl,
+                gatewayIndex: nextGatewayIndex
+            });
+
+            console.log(`Trying gateway ${nextGatewayIndex} for ${token.symbol}:`, nextUrl);
         } else {
             // All gateways failed
-            setImageError(true);
-            setImageLoading(false);
+            setImageState(prev => ({ ...prev, status: 'error' }));
+            imageCache.set(token.mintAddress, { status: 'error' });
             console.log(`All gateways failed for ${token.symbol}`);
         }
     };
 
     const handleImageLoad = () => {
-        setImageLoading(false);
-        console.log(`Image loaded successfully for ${token.symbol} using gateway ${currentGatewayIndex}`);
-    };
+        setImageState(prev => ({ ...prev, status: 'loaded' }));
 
-    const currentUrl = getCurrentImageUrl();
+        // Cache successful result
+        imageCache.set(token.mintAddress, {
+            status: 'loaded',
+            workingUrl: imageState.currentUrl,
+            gatewayIndex: imageState.gatewayIndex
+        });
+
+        console.log(`✅ Image loaded for ${token.symbol} using gateway ${imageState.gatewayIndex}`);
+    };
 
     return (
         <div className={className}>
-            {token.imageUri && !imageError ? (
+            {token.imageUri && imageState.status !== 'error' ? (
                 <>
                     <img
-                        key={`${token.mintAddress}-${currentGatewayIndex}`}
-                        src={currentUrl}
+                        key={token.mintAddress} // Use stable key
+                        src={imageState.currentUrl}
                         alt={token.name}
                         className="w-10 h-10 rounded-full object-cover"
                         onError={handleImageError}
                         onLoad={handleImageLoad}
-                        style={{ display: imageLoading ? 'none' : 'block' }}
+                        style={{
+                            display: imageState.status === 'loaded' ? 'block' : 'none',
+                            transition: 'opacity 0.2s ease-in-out'
+                        }}
                     />
-                    {imageLoading && (
+                    {imageState.status === 'loading' && (
                         <div className="w-10 h-10 rounded-full bg-gray-600 animate-pulse flex items-center justify-center">
                             <span className="text-xs text-gray-400">...</span>
                         </div>
                     )}
                 </>
             ) : (
-                <span className="text-lg font-bold text-purple-400 flex items-center justify-center w-10 h-10">
+                <span className="text-lg font-bold text-purple-400 flex items-center justify-center w-10 h-10 rounded-full bg-gray-700/50">
                     {token.symbol.charAt(0)}
                 </span>
             )}
@@ -145,6 +207,7 @@ export default function TrendingPage() {
     const [error, setError] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const [sortBy, setSortBy] = useState<'marketCap' | 'recent'>('recent');
+    const [lastCacheTimestamp, setLastCacheTimestamp] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTrendingTokens(1, true);
@@ -187,12 +250,28 @@ export default function TrendingPage() {
                 setCurrentPage(page);
                 setHasMore(data.pagination.hasNextPage);
 
-                if (isInitial) {
+                // Check if cache was refreshed (timestamp changed) - if so, restart pagination
+                if (!isInitial && lastCacheTimestamp && data.timestamp !== lastCacheTimestamp) {
+                    console.log('🔄 Cache refresh detected, restarting pagination to avoid duplicates');
+                    // Cache was refreshed, restart from page 1 to avoid stale pagination
+                    setTokens(data.graduatingTokens);
+                    setCurrentPage(1);
+                    setPagination(data.pagination);
+                } else if (isInitial) {
                     setTokens(data.graduatingTokens);
                 } else {
-                    // Append new tokens to existing ones
-                    setTokens(prevTokens => [...prevTokens, ...data.graduatingTokens]);
+                    // Append new tokens but deduplicate by mintAddress
+                    setTokens(prevTokens => {
+                        const existingMintAddresses = new Set(prevTokens.map(t => t.mintAddress));
+                        const newTokens = data.graduatingTokens.filter(token =>
+                            !existingMintAddresses.has(token.mintAddress)
+                        );
+                        return [...prevTokens, ...newTokens];
+                    });
                 }
+
+                // Update cache timestamp tracking
+                setLastCacheTimestamp(data.timestamp);
 
                 // Debug: Log first few token image URLs
                 console.log('Token image URLs:', data.graduatingTokens.slice(0, 3).map(t => ({
@@ -320,7 +399,7 @@ export default function TrendingPage() {
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredAndSortedTokens.map((token, index) => (
-                                <div key={`${token.mintAddress}-${index}`} className="dark-card rounded-xl p-6 group hover:scale-105 transition-all duration-300 flex flex-col h-full">
+                                <div key={token.mintAddress} className="dark-card rounded-xl p-6 group hover:scale-105 transition-all duration-300 flex flex-col h-full">
                                     {/* Token Header */}
                                     <div className="flex items-start gap-4 mb-4">
                                         <TokenImage
