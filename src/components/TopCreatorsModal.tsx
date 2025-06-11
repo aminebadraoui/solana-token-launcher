@@ -148,6 +148,20 @@ export default function TopCreatorsModal({
                                                     <span className="font-mono text-white">
                                                         {formatAddress(creator.address)}
                                                     </span>
+                                                    <a
+                                                        href={`https://solscan.io/account/${creator.address}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="text-blue-400 hover:text-blue-300 transition-colors text-xs flex items-center space-x-1"
+                                                        title="View on Solscan"
+                                                    >
+                                                        <span>🔍</span>
+                                                        <span>Solscan</span>
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                        </svg>
+                                                    </a>
                                                     {isCurrentCreator(creator.address) && (
                                                         <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full">
                                                             CURRENT
