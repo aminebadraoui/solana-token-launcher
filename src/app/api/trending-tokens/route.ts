@@ -8,6 +8,7 @@ interface PumpFunToken {
     description?: string;
     imageUri?: string;
     metadataUri?: string;
+    creatorAddress?: string;
     price: number;
     priceInUSD: number;
     marketCap: number;

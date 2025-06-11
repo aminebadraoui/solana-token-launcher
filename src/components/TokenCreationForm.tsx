@@ -31,6 +31,7 @@ interface PumpFunToken {
     description?: string;
     imageUri?: string;
     metadataUri?: string;
+    creatorAddress?: string;
     price: number;
     priceInUSD: number;
     marketCap: number;
@@ -92,6 +93,11 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
             // Fetch and extract social links from metadata
             if (cloneData.metadataUri) {
                 extractSocialLinksFromMetadata(cloneData.metadataUri, cloneData.symbol);
+            }
+
+            // Auto-populate creator info if available
+            if (cloneData.creatorAddress) {
+                populateCreatorInfo(cloneData.creatorAddress, cloneData.symbol);
             }
 
             setIsAutoPopulated(true);
@@ -221,6 +227,32 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
             console.log(`⚠️ Failed to fetch metadata for ${tokenSymbol}:`, errorMessage);
         } finally {
             setIsFetchingSocialLinks(false);
+        }
+    };
+
+    const populateCreatorInfo = async (creatorAddress: string, tokenSymbol: string) => {
+        try {
+            console.log(`👤 Auto-populating creator info for ${tokenSymbol} with address:`, creatorAddress);
+
+            // Validate the creator address format
+            if (isValidSolanaAddress(creatorAddress)) {
+                // Auto-enable creator info toggle
+                setShowCreatorInfo(true);
+
+                // Populate creator info with the address and a default name
+                setFormData(prev => ({
+                    ...prev,
+                    creatorAddress: creatorAddress,
+                    creatorName: 'Original Creator', // Default name
+                }));
+
+                console.log(`✅ Auto-enabled creator info and populated address for ${tokenSymbol}`);
+            } else {
+                console.log(`⚠️ Invalid creator address format for ${tokenSymbol}:`, creatorAddress);
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log(`⚠️ Failed to populate creator info for ${tokenSymbol}:`, errorMessage);
         }
     };
 
@@ -694,11 +726,29 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                                         type="button"
                                         onClick={() => setShowWalletFinder(true)}
                                         className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
-                                        title="Find High-SOL Wallets"
+                                        title="Replace with High-SOL Creator Wallet"
                                     >
-                                        💰 Find Wallets
+                                        👑 Replace with Top Creator
                                     </button>
                                 </div>
+
+                                {/* Solscan link for valid creator address */}
+                                {formData.creatorAddress && isValidSolanaAddress(formData.creatorAddress) && (
+                                    <div className="mt-2">
+                                        <a
+                                            href={`https://solscan.io/account/${formData.creatorAddress}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                                        >
+                                            🔍 View in Solscan
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
+                                    </div>
+                                )}
+
                                 {formData.creatorAddress && !isValidSolanaAddress(formData.creatorAddress) && (
                                     <p className="text-red-400 text-sm mt-1">
                                         Please enter a valid Solana address

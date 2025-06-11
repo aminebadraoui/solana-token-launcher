@@ -8,6 +8,7 @@ interface PumpFunToken {
     description?: string;
     imageUri?: string;
     metadataUri?: string;
+    creatorAddress?: string;
     price: number;
     priceInUSD: number;
     marketCap: number;
@@ -29,6 +30,9 @@ interface BitQueryToken {
                 Uri: string;
             };
         };
+    };
+    Transaction: {
+        Signer: string;
     };
     Block: {
         Time: string;
@@ -168,6 +172,9 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
                     }
                   }
                 }
+                Transaction {
+                  Signer
+                }
                 Block {
                   Time
                 }
@@ -202,6 +209,7 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
         // Process and transform the data (moved from route.ts)
         const processedTokens: PumpFunToken[] = await Promise.all(trades.map(async (trade) => {
             const currency = trade.Trade.Buy.Currency;
+            const creatorAddress = trade.Transaction.Signer || '';
             const price = trade.Trade.Buy.Price || 0;
             const priceInUSD = trade.Trade.Buy.PriceInUSD || 0;
             const marketCap = priceInUSD * PUMP_TOKEN_SUPPLY;
@@ -329,6 +337,7 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
                 description: tokenDescription || `A trending token on pump.fun with ${graduationProgress.toFixed(1)}% graduation progress.`,
                 imageUri,
                 metadataUri,
+                creatorAddress,
                 price,
                 priceInUSD,
                 marketCap,

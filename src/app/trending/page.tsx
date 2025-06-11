@@ -167,6 +167,7 @@ interface PumpFunToken {
     symbol: string;
     description?: string;
     imageUri?: string;
+    creatorAddress?: string;
     price: number;
     priceInUSD: number;
     marketCap: number;
