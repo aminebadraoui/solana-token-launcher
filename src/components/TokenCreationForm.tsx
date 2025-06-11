@@ -12,6 +12,7 @@ interface TokenFormData {
     supply: number;
     description: string;
     image: File | null;
+    clonedImageUri: string | null; // Add support for cloned image URL
     revokeMintAuth: boolean;
     revokeFreezeAuth: boolean;
     revokeUpdateAuth: boolean;
@@ -29,6 +30,7 @@ interface PumpFunToken {
     symbol: string;
     description?: string;
     imageUri?: string;
+    metadataUri?: string;
     price: number;
     priceInUSD: number;
     marketCap: number;
@@ -56,6 +58,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         supply: 1000000,
         description: '',
         image: null,
+        clonedImageUri: null,
         revokeMintAuth: true, // Default to true
         revokeFreezeAuth: true, // Default to true
         revokeUpdateAuth: true, // Default to true
@@ -66,6 +69,8 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         twitterLink: '',
         websiteLink: '',
     });
+    const [isDownloadingImage, setIsDownloadingImage] = useState(false);
+    const [showFileInput, setShowFileInput] = useState(true);
 
     // Auto-populate form when clone data is available
     useEffect(() => {
@@ -74,8 +79,15 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 ...prev,
                 name: generateCloneName(cloneData.name),
                 symbol: generateCloneSymbol(cloneData.symbol),
-                description: generateCloneDescription(cloneData.description),
+                description: generateCloneDescription(cloneData.description), // Use description from metadata
+                clonedImageUri: cloneData.imageUri || null, // Store for preview purposes
             }));
+
+            // Download and convert the cloned image to a File object
+            if (cloneData.imageUri) {
+                downloadClonedImage(cloneData.imageUri, cloneData.symbol);
+            }
+
             setIsAutoPopulated(true);
         }
     }, [cloneData, isAutoPopulated]);
@@ -106,21 +118,74 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
     };
 
     const generateCloneDescription = (originalDescription?: string): string => {
-        if (!originalDescription) {
-            return 'A new token inspired by trending pump.fun projects, designed for community growth and success.';
+        // Use the actual description directly, no fake additions
+        return originalDescription || '';
+    };
+
+    const downloadClonedImage = async (imageUri: string, tokenSymbol: string) => {
+        setIsDownloadingImage(true);
+        try {
+            console.log('🖼️ Starting download of cloned image:', imageUri);
+
+            // Fetch the image with timeout
+            const response = await fetch(imageUri, {
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+
+            console.log('📦 Image fetched successfully, converting to blob...');
+
+            // Get the blob
+            const imageBlob = await response.blob();
+
+            // Determine file extension from content type or URL
+            let extension = 'png'; // default
+            const contentType = response.headers.get('content-type');
+            if (contentType?.includes('jpeg') || contentType?.includes('jpg')) {
+                extension = 'jpg';
+            } else if (contentType?.includes('png')) {
+                extension = 'png';
+            } else if (contentType?.includes('gif')) {
+                extension = 'gif';
+            } else if (contentType?.includes('webp')) {
+                extension = 'webp';
+            }
+
+            // Create a File object from the blob
+            const fileName = `${tokenSymbol}_cloned_image.${extension}`;
+            const imageFile = new File([imageBlob], fileName, {
+                type: contentType || 'image/png',
+                lastModified: Date.now()
+            });
+
+            console.log('📁 Created File object:', {
+                name: imageFile.name,
+                size: imageFile.size,
+                type: imageFile.type
+            });
+
+            // Update the form data with the downloaded image
+            setFormData(prev => ({
+                ...prev,
+                image: imageFile,
+                clonedImageUri: null // Clear this since we now have the actual file
+            }));
+
+            // Hide the file input since we have a cloned image
+            setShowFileInput(false);
+
+            console.log('✅ Successfully downloaded and converted cloned image to File object');
+
+        } catch (error) {
+            console.error('❌ Failed to download cloned image:', error);
+            // Keep the clonedImageUri for fallback display
+            console.log('ℹ️ Keeping original image URI as fallback');
+        } finally {
+            setIsDownloadingImage(false);
         }
-
-        // Generate inspired description
-        const inspirationPhrases = [
-            'Inspired by the success of trending tokens',
-            'Building on the foundation of proven concepts',
-            'Taking the best ideas to the next level',
-            'A fresh take on successful tokenomics',
-            'Evolved from community-favorite projects',
-        ];
-
-        const randomPhrase = inspirationPhrases[Math.floor(Math.random() * inspirationPhrases.length)];
-        return `${randomPhrase}. ${originalDescription}`.substring(0, 200);
     };
 
     const baseCost = 0.2; // SOL
@@ -133,7 +198,18 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         if (formData.revokeUpdateAuth) total += premiumFeeCost;
         if (showCreatorInfo) total += premiumFeeCost;
         if (showSocialLinks) total += premiumFeeCost;
-        // Add clone fee if in clone mode
+        // Don't add clone fee in promotional mode - it's free
+        return total;
+    };
+
+    const calculateRegularTotalCost = () => {
+        let total = baseCost;
+        if (formData.revokeMintAuth) total += premiumFeeCost;
+        if (formData.revokeFreezeAuth) total += premiumFeeCost;
+        if (formData.revokeUpdateAuth) total += premiumFeeCost;
+        if (showCreatorInfo) total += premiumFeeCost;
+        if (showSocialLinks) total += premiumFeeCost;
+        // Add clone fee for regular pricing (what it would normally cost)
         if (isCloneMode) total += premiumFeeCost;
         return total;
     };
@@ -305,16 +381,136 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 <div>
                     <label className="block text-primary font-medium mb-2">
                         Token Image
-                        <span className="text-muted text-sm ml-2">
-                            Add logo for your token or use AI to Generate one for you!
-                        </span>
+                        {isCloneMode && formData.clonedImageUri && (
+                            <span className="text-muted text-sm ml-2">
+                                Using cloned token image. Upload a new file to override.
+                            </span>
+                        )}
                     </label>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="w-full px-4 py-3 dark-input rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-500 file:text-white hover:file:bg-purple-600"
-                    />
+
+                    {/* Show image download loading state */}
+                    {isCloneMode && isDownloadingImage && (
+                        <div className="mb-4 p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                                    <div className="animate-spin w-6 h-6 border-2 border-blue-300 border-t-transparent rounded-full"></div>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-blue-300">
+                                        📥 Downloading cloned image...
+                                    </p>
+                                    <p className="text-xs text-blue-200">
+                                        Converting to your own image file
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Show cloned image preview if available (fallback case) */}
+                    {isCloneMode && formData.clonedImageUri && !formData.image && !isDownloadingImage && (
+                        <div className="mb-4 p-4 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg">
+                            <div className="flex items-center gap-4">
+                                <img
+                                    src={formData.clonedImageUri}
+                                    alt="Cloned token image (fallback)"
+                                    className="w-16 h-16 rounded-lg object-cover border border-yellow-500/30"
+                                    onError={(e) => {
+                                        // Fallback if image fails to load
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-yellow-300">
+                                        ⚠️ Fallback: Using original image URL
+                                    </p>
+                                    <p className="text-xs text-yellow-200">
+                                        Download failed. Upload a new image below to replace.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, clonedImageUri: null }))}
+                                    className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+
+
+                    {/* Show image preview */}
+                    {formData.image ? (
+                        <div className="mb-4 p-4 bg-gray-700/50 rounded-lg border border-gray-600">
+                            <div className="flex items-start gap-4">
+                                {/* Image Preview - Made bigger */}
+                                <div className="flex-shrink-0">
+                                    <img
+                                        src={URL.createObjectURL(formData.image)}
+                                        alt="Token image preview"
+                                        className="w-32 h-32 rounded-lg object-cover border border-gray-500"
+                                        onLoad={(e) => {
+                                            // Clean up the object URL to prevent memory leaks
+                                            // We'll keep it for now since we need it for display
+                                        }}
+                                    />
+                                </div>
+                                {/* File Info */}
+                                <div className="flex-1">
+                                    <p className="text-sm text-green-400 font-medium">
+                                        {formData.image.name.includes('_cloned_image') ? '📥 Downloaded from trending token' : '📤 Uploaded'}: {formData.image.name}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        {(formData.image.size / 1024).toFixed(1)} KB • {formData.image.type}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        This image will be uploaded to IPFS when you create the token
+                                    </p>
+                                </div>
+                                {/* Remove Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData(prev => ({ ...prev, image: null }));
+                                        setShowFileInput(true); // Show file input again when removing
+                                    }}
+                                    className="text-red-400 hover:text-red-300 text-sm px-3 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* File input or replace button */}
+                    {showFileInput ? (
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="w-full px-4 py-3 dark-input rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-500 file:text-white hover:file:bg-purple-600"
+                        />
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowFileInput(true);
+                                setFormData(prev => ({ ...prev, image: null }));
+                            }}
+                            className="w-full px-4 py-3 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-lg text-blue-300 hover:text-blue-200 hover:bg-gradient-to-r hover:from-blue-500/30 hover:to-purple-500/30 transition-all duration-300 flex items-center justify-center gap-2"
+                        >
+                            🖼️ Replace with your own image
+                        </button>
+                    )}
+
+                    <p className="text-xs text-gray-400 mt-2">
+                        {formData.image
+                            ? 'Upload a new file to replace the current image'
+                            : 'Upload an image file for your token'
+                        }
+                    </p>
                 </div>
 
                 {/* Description */}
@@ -564,6 +760,15 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                             <span>Base Token Creation:</span>
                             <span>{baseCost} SOL</span>
                         </div>
+                        {isCloneMode && (
+                            <div className="flex justify-between text-primary">
+                                <span>🎉 Premium Cloning Feature:</span>
+                                <span className="flex items-center gap-2">
+                                    <span className="line-through opacity-60 text-red-300">0.1 SOL</span>
+                                    <span className="text-green-400 font-bold">FREE</span>
+                                </span>
+                            </div>
+                        )}
                         {formData.revokeMintAuth && (
                             <div className="flex justify-between text-primary">
                                 <span>Revoke Mint Authority:</span>
@@ -597,7 +802,14 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                         <div className="border-t border-subtle pt-2">
                             <div className="flex justify-between text-xl font-bold text-primary">
                                 <span>Total:</span>
-                                <span>{calculateTotalCost()} SOL</span>
+                                {isCloneMode ? (
+                                    <span className="flex items-center gap-2">
+                                        <span className="line-through opacity-60 text-red-300">{calculateRegularTotalCost()} SOL</span>
+                                        <span className="text-green-400">{calculateTotalCost()} SOL</span>
+                                    </span>
+                                ) : (
+                                    <span>{calculateTotalCost()} SOL</span>
+                                )}
                             </div>
                         </div>
                     </div>

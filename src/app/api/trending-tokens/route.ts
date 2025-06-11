@@ -45,6 +45,7 @@ interface PumpFunToken {
     symbol: string;
     description?: string;
     imageUri?: string;
+    metadataUri?: string;
     price: number;
     priceInUSD: number;
     marketCap: number;
@@ -184,8 +185,9 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
                 }
             }
 
-            // Fetch the actual image URL from metadata
+            // Fetch the actual image URL and description from metadata
             let imageUri = '';
+            let tokenDescription = '';
             let tokenName = metadataSource.Name || currency.Name || currency.Symbol || 'Unknown Token';
             let tokenSymbol = metadataSource.Symbol || currency.Symbol || 'UNKNOWN';
 
@@ -205,6 +207,7 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
                     clearTimeout(timeoutId);
                     if (metadataResponse.ok) {
                         const metadata = await metadataResponse.json();
+                        console.log(`📄 Metadata for ${currency.MintAddress}:`, JSON.stringify(metadata, null, 2));
 
                         // Extract image URL from metadata
                         if (metadata.image) {
@@ -215,6 +218,14 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
                             } else if (!imageUri.startsWith('http') && (imageUri.startsWith('Qm') || imageUri.startsWith('baf'))) {
                                 imageUri = `https://ipfs.io/ipfs/${imageUri}`;
                             }
+                        }
+
+                        // Extract description from metadata
+                        if (metadata.description && metadata.description.trim()) {
+                            tokenDescription = metadata.description.trim();
+                            console.log(`📝 Found description for ${tokenSymbol}: "${tokenDescription}"`);
+                        } else {
+                            console.log(`❌ No description found for ${tokenSymbol}. Available fields:`, Object.keys(metadata));
                         }
 
                         // Use metadata name/symbol if available and better
@@ -234,14 +245,15 @@ async function fetchGraduatingTokens(): Promise<PumpFunToken[]> {
                 console.log(`No metadata URI found for ${currency.MintAddress}`);
             }
 
-            console.log(`Token ${tokenSymbol}: metadataUri=${metadataUri}, imageUri=${imageUri}`);
+            console.log(`Token ${tokenSymbol}: metadataUri=${metadataUri}, imageUri=${imageUri}, description="${tokenDescription}"`);
 
             return {
                 mintAddress: currency.MintAddress || 'unknown',
                 name: tokenName,
                 symbol: tokenSymbol,
-                description: `A trending token on pump.fun with ${graduationProgress.toFixed(1)}% graduation progress.`,
+                description: tokenDescription || '', // Use actual description or empty string
                 imageUri,
+                metadataUri,
                 price,
                 priceInUSD,
                 marketCap,

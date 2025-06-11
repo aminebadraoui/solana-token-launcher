@@ -36,6 +36,7 @@ export default function CreateToken() {
     useEffect(() => {
         if (cloneParam) {
             setIsCloneMode(true);
+            setIsPremiumPaid(true); // Auto-activate premium feature when coming from clone link
             fetchCloneTokenData(cloneParam);
         }
     }, [cloneParam]);
@@ -70,11 +71,7 @@ export default function CreateToken() {
         }
     };
 
-    const handlePremiumPayment = async () => {
-        // TODO: Implement SOL payment processing
-        // For now, simulate payment success
-        setIsPremiumPaid(true);
-    };
+
 
     const renderCloneHeader = () => {
         if (!isCloneMode || !cloneTokenData) return null;
@@ -107,32 +104,21 @@ export default function CreateToken() {
                     </div>
                 </div>
 
-                {!isPremiumPaid ? (
-                    <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-semibold text-primary mb-1">Premium Cloning Feature</h3>
-                                <p className="text-sm text-secondary">
-                                    Auto-populate your token creation form with this trending token's metadata
-                                </p>
-                            </div>
-                            <button
-                                onClick={handlePremiumPayment}
-                                className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-300"
-                            >
-                                Pay 0.1 SOL
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
+                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <span className="text-green-400 text-lg">✅</span>
-                            <span className="font-semibold text-green-300">Premium feature activated!</span>
-                            <span className="text-sm text-green-200">Form will be auto-populated below</span>
+                            <span className="text-green-400 text-lg">🎉</span>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-green-300">FREE Promotional Cloning!</span>
+                                    <span className="text-xs px-2 py-1 bg-red-500/20 text-red-300 rounded-full line-through opacity-75">0.1 SOL</span>
+                                    <span className="text-xs px-2 py-1 bg-green-500/20 text-green-300 rounded-full font-bold">FREE</span>
+                                </div>
+                                <span className="text-sm text-green-200">Form auto-populated with token metadata below</span>
+                            </div>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
         );
     };

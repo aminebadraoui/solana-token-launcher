@@ -257,14 +257,14 @@ export default function TrendingPage() {
 
                     <p className="text-lg text-secondary mb-8 max-w-3xl mx-auto leading-relaxed">
                         Discover pump.fun tokens approaching the $69K graduation threshold.
-                        Clone their success with our premium auto-population feature for just 0.1 SOL.
+                        Clone their success with our premium auto-population feature - <span className="line-through opacity-60">normally 0.1 SOL</span> <span className="text-green-400 font-semibold">now FREE!</span>
                     </p>
 
                     {/* Premium Feature Badge */}
-                    <div className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg px-6 py-3 mb-8">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                        <span className="text-purple-light font-medium">Premium Cloning Feature: +0.1 SOL</span>
-                        <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div>
+                    <div className="inline-flex items-center gap-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg px-6 py-3 mb-8">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-green-light font-medium">🎉 Premium Cloning: <span className="line-through opacity-60">+0.1 SOL</span> <span className="text-green-400 font-bold">FREE PROMO!</span></span>
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                     </div>
                 </div>
 
@@ -320,7 +320,7 @@ export default function TrendingPage() {
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredAndSortedTokens.map((token, index) => (
-                                <div key={`${token.mintAddress}-${index}`} className="dark-card rounded-xl p-6 group hover:scale-105 transition-all duration-300">
+                                <div key={`${token.mintAddress}-${index}`} className="dark-card rounded-xl p-6 group hover:scale-105 transition-all duration-300 flex flex-col h-full">
                                     {/* Token Header */}
                                     <div className="flex items-start gap-4 mb-4">
                                         <TokenImage
@@ -329,9 +329,19 @@ export default function TrendingPage() {
                                         />
 
                                         <div className="flex-1">
-                                            <h3 className="text-lg font-semibold text-primary mb-1">
-                                                {token.name || 'Unknown Token'}
-                                            </h3>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="text-lg font-semibold text-primary">
+                                                    {token.name || 'Unknown Token'}
+                                                </h3>
+                                                <a
+                                                    href={`https://pump.fun/${token.mintAddress}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-gray-400 hover:text-purple-400 transition-colors duration-200"
+                                                >
+                                                    📈 pump.fun
+                                                </a>
+                                            </div>
                                             <p className="text-sm text-secondary">${token.symbol}</p>
                                         </div>
                                     </div>
@@ -365,29 +375,21 @@ export default function TrendingPage() {
                                         </div>
                                     </div>
 
-                                    {/* Description */}
-                                    {token.description && (
-                                        <p className="text-sm text-secondary mb-4 line-clamp-2">
-                                            {token.description}
+                                    {/* Description - Fixed height container */}
+                                    <div className="mb-4 flex-grow">
+                                        <p className="text-sm text-secondary line-clamp-2 min-h-[2.5rem]">
+                                            {token.description || ''}
                                         </p>
-                                    )}
+                                    </div>
 
-                                    {/* Action Button */}
-                                    <div className="flex items-center gap-3 mt-4">
+                                    {/* Action Button - Always at bottom */}
+                                    <div className="mt-auto">
                                         <Link
                                             href={`/create-token?clone=${token.mintAddress}`}
-                                            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-300 text-center text-sm"
+                                            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-300 text-center text-sm block"
                                         >
-                                            🚀 Clone for 0.1 SOL
+                                            🚀 Clone for <span className="line-through opacity-60">0.1 SOL</span> <span className="text-green-300 font-bold">FREE</span>
                                         </Link>
-                                        <a
-                                            href={`https://pump.fun/${token.mintAddress}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 text-sm border border-gray-600/30"
-                                        >
-                                            📈 View on Pump.fun
-                                        </a>
                                     </div>
                                 </div>
                             ))}
