@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { createTokenMint } from '@/lib/tokenMinting';
 import TopCreatorsModal from './TopCreatorsModal';
+import Link from 'next/link';
 
 interface TokenFormData {
     name: string;
@@ -430,6 +431,29 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
 
     return (
         <div className="dark-card rounded-lg p-8">
+            {/* Help Banner */}
+            <div className="mb-6 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-blue-400 text-xl">📚</span>
+                        <div>
+                            <h3 className="font-semibold text-blue-300 mb-1">
+                                Need Help Creating Your Token?
+                            </h3>
+                            <p className="text-sm text-blue-200">
+                                Check out our support guides and troubleshooting tips
+                            </p>
+                        </div>
+                    </div>
+                    <Link
+                        href="/docs"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                        Get Support
+                    </Link>
+                </div>
+            </div>
+
             {/* Auto-population indicator */}
             {isAutoPopulated && cloneData && (
                 <div className="mb-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
