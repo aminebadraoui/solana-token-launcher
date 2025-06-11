@@ -1,0 +1,336 @@
+
+> solana-token-launcher@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.3.3 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.10:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1015ms
+ ○ Compiling /api/trending-tokens ...
+ ✓ Compiled /api/trending-tokens in 647ms
+🚀 Fetching tokens about to graduate from pump.fun...
+📈 Found 0 transfers from BitQuery
+✅ Processed 0 tokens from real BitQuery data
+🎯 Returning 0 tokens about to graduate
+ GET /api/trending-tokens 200 in 1433ms
+🚀 Fetching tokens about to graduate from pump.fun...
+📈 Found 15 transfers from BitQuery
+✅ Processed 10 tokens from real BitQuery data
+🎯 Returning 10 tokens about to graduate
+ GET /api/trending-tokens 200 in 44436ms
+ ○ Compiling /trending ...
+ ✓ Compiled /trending in 4.8s
+ GET /trending 200 in 5606ms
+ ○ Compiling /create-token ...
+ ✓ Compiled /create-token in 9.3s
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+ GET /create-token 200 in 9405ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 883ms
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 1145ms
+ GET /trending 200 in 60ms
+🚀 Fetching tokens about to graduate from pump.fun...
+🚀 Fetching tokens about to graduate from pump.fun...
+ GET /create-token 200 in 50ms
+ GET /trending 200 in 44ms
+ ○ Compiling /_not-found/page ...
+ ✓ Compiled /_not-found/page in 1829ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 1951ms
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50871ms
+🚀 Fetching tokens about to graduate from pump.fun...
+🚀 Fetching tokens about to graduate from pump.fun...
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50643ms
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50277ms
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50597ms
+🚀 Fetching tokens about to graduate from pump.fun...
+📈 Found 15 transfers from BitQuery
+✅ Processed 10 tokens from real BitQuery data
+🎯 Returning 10 tokens about to graduate
+ GET /api/trending-tokens 200 in 765ms
+ ✓ Compiled in 2.9s
+ GET /create-token?clone=9FD88nNVGeCHjn62bdKgCW5rdXTFWypf5gm8nYxm5QYX 200 in 235ms
+📦 Returning cached graduating tokens (10 tokens)
+ GET /api/trending-tokens 200 in 157ms
+📦 Returning cached graduating tokens (10 tokens)
+ GET /api/trending-tokens 200 in 99ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1200ms
+ GET / 200 in 1241ms
+ GET /trending 200 in 47ms
+📦 Returning cached graduating tokens (10 tokens)
+ GET /api/trending-tokens 200 in 71ms
+📦 Returning cached graduating tokens (10 tokens)
+ GET /api/trending-tokens 200 in 26ms
+📦 Returning cached graduating tokens (10 tokens)
+ GET /api/trending-tokens 200 in 70ms
+ ✓ Compiled in 2.1s
+ GET /create-token 200 in 292ms
+ ✓ Compiled in 372ms
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+ GET /create-token?clone=7WnimPBHYVKjGFHEZa7riteKyZMwV5oVccFqrcrfa4Ty 200 in 872ms
+ GET /trending 200 in 127ms
+🚀 Fetching tokens about to graduate from pump.fun...
+🚀 Fetching tokens about to graduate from pump.fun...
+ GET /trending 200 in 232ms
+ GET /api/trending-tokens 200 in 29585ms
+ GET /api/trending-tokens 200 in 9575ms
+🚀 Fetching tokens about to graduate from pump.fun...
+ GET /favicon.ico?favicon.45db1c09.ico 200 in 492ms
+ GET /create-token 200 in 74ms
+ GET /trending 200 in 137ms
+ GET /create-token 200 in 95ms
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /create-token 200 in 44ms
+ GET / 200 in 84ms
+🚀 Fetching tokens about to graduate from pump.fun...
+🚀 Fetching tokens about to graduate from pump.fun...
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50721ms
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50567ms
+Error fetching graduating tokens from BitQuery: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+API Error: Error: BitQuery API error: 504 Gateway Time-out
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:70:18)
+    at async GET (src/app/api/trending-tokens/route.ts:155:26)
+  68 |
+  69 |         if (!response.ok) {
+> 70 |             throw new Error(`BitQuery API error: ${response.status} ${response.statusText}`);
+     |                  ^
+  71 |         }
+  72 |
+  73 |         const data = await response.json();
+ GET /api/trending-tokens 500 in 50652ms
+ GET /trending 200 in 56ms
+🚀 Fetching tokens about to graduate from pump.fun...
+📈 Found 15 transfers from BitQuery
+✅ Processed 10 tokens from real BitQuery data
+🎯 Returning 10 tokens about to graduate
+ GET /api/trending-tokens 200 in 282ms
+📦 Returning cached graduating tokens (10 tokens)
+ GET /api/trending-tokens 200 in 53ms
+🚀 Fetching tokens about to graduate from pump.fun...
+BitQuery GraphQL errors: [
+  {
+    message: 'Cannot query field "Solana" on type "RootQuery".',
+    locations: [ [Object] ]
+  }
+]
+Error fetching graduating tokens from BitQuery: Error: GraphQL query failed
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:122:18)
+    at async GET (src/app/api/trending-tokens/route.ts:209:26)
+  120 |         if (data.errors) {
+  121 |             console.error('BitQuery GraphQL errors:', data.errors);
+> 122 |             throw new Error('GraphQL query failed');
+      |                  ^
+  123 |         }
+  124 |
+  125 |         const trades: BitQueryToken[] = data.data?.Solana?.DEXTrades || [];
+API Error: Error: GraphQL query failed
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:122:18)
+    at async GET (src/app/api/trending-tokens/route.ts:209:26)
+  120 |         if (data.errors) {
+  121 |             console.error('BitQuery GraphQL errors:', data.errors);
+> 122 |             throw new Error('GraphQL query failed');
+      |                  ^
+  123 |         }
+  124 |
+  125 |         const trades: BitQueryToken[] = data.data?.Solana?.DEXTrades || [];
+ GET /api/trending-tokens 500 in 787ms
+🚀 Fetching tokens about to graduate from pump.fun...
+BitQuery GraphQL errors: [
+  {
+    message: 'Cannot query field "Solana" on type "RootQuery".',
+    locations: [ [Object] ]
+  }
+]
+Error fetching graduating tokens from BitQuery: Error: GraphQL query failed
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:122:18)
+    at async GET (src/app/api/trending-tokens/route.ts:209:26)
+  120 |         if (data.errors) {
+  121 |             console.error('BitQuery GraphQL errors:', data.errors);
+> 122 |             throw new Error('GraphQL query failed');
+      |                  ^
+  123 |         }
+  124 |
+  125 |         const trades: BitQueryToken[] = data.data?.Solana?.DEXTrades || [];
+API Error: Error: GraphQL query failed
+    at fetchGraduatingTokens (src/app/api/trending-tokens/route.ts:122:18)
+    at async GET (src/app/api/trending-tokens/route.ts:209:26)
+  120 |         if (data.errors) {
+  121 |             console.error('BitQuery GraphQL errors:', data.errors);
+> 122 |             throw new Error('GraphQL query failed');
+      |                  ^
+  123 |         }
+  124 |
+  125 |         const trades: BitQueryToken[] = data.data?.Solana?.DEXTrades || [];
+ GET /api/trending-tokens 500 in 529ms
+[?25h

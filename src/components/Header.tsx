@@ -20,6 +20,12 @@ export function Header() {
                     Home
                 </Link>
                 <Link
+                    href="/trending"
+                    className="px-6 py-2 rounded-full text-white hover:bg-white/10 transition-all duration-300 font-medium"
+                >
+                    Trending
+                </Link>
+                <Link
                     href="/create-token"
                     className="px-6 py-2 rounded-full text-white hover:bg-white/10 transition-all duration-300 font-medium"
                 >

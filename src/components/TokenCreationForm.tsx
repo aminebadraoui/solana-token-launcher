@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { createTokenMint } from '@/lib/tokenMinting';
+import WalletFinder from './WalletFinder';
 
 interface TokenFormData {
     name: string;
@@ -22,12 +23,32 @@ interface TokenFormData {
     websiteLink: string;
 }
 
-export function TokenCreationForm() {
+interface PumpFunToken {
+    mintAddress: string;
+    name: string;
+    symbol: string;
+    description?: string;
+    imageUri?: string;
+    price: number;
+    priceInUSD: number;
+    marketCap: number;
+    graduationProgress: number;
+    creationTime: string;
+}
+
+interface TokenCreationFormProps {
+    cloneData?: PumpFunToken | null;
+    isCloneMode?: boolean;
+}
+
+export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreationFormProps) {
     const { publicKey, signTransaction } = useWallet();
     const { connection } = useConnection();
     const [isLoading, setIsLoading] = useState(false);
     const [showCreatorInfo, setShowCreatorInfo] = useState(false);
     const [showSocialLinks, setShowSocialLinks] = useState(false);
+    const [showWalletFinder, setShowWalletFinder] = useState(false);
+    const [isAutoPopulated, setIsAutoPopulated] = useState(false);
     const [formData, setFormData] = useState<TokenFormData>({
         name: '',
         symbol: '',
@@ -46,6 +67,62 @@ export function TokenCreationForm() {
         websiteLink: '',
     });
 
+    // Auto-populate form when clone data is available
+    useEffect(() => {
+        if (cloneData && !isAutoPopulated) {
+            setFormData(prev => ({
+                ...prev,
+                name: generateCloneName(cloneData.name),
+                symbol: generateCloneSymbol(cloneData.symbol),
+                description: generateCloneDescription(cloneData.description),
+            }));
+            setIsAutoPopulated(true);
+        }
+    }, [cloneData, isAutoPopulated]);
+
+    const generateCloneName = (originalName: string): string => {
+        // Generate a variation of the original name
+        const variations = [
+            `${originalName} V2`,
+            `${originalName} Plus`,
+            `${originalName} Pro`,
+            `${originalName} 2.0`,
+            `New ${originalName}`,
+            `${originalName} Reborn`,
+        ];
+        return variations[Math.floor(Math.random() * variations.length)];
+    };
+
+    const generateCloneSymbol = (originalSymbol: string): string => {
+        // Generate a variation of the original symbol
+        const variations = [
+            `${originalSymbol}2`,
+            `${originalSymbol}V2`,
+            `N${originalSymbol}`,
+            `${originalSymbol}+`,
+            `${originalSymbol}X`,
+        ];
+        return variations[Math.floor(Math.random() * variations.length)].substring(0, 5);
+    };
+
+    const generateCloneDescription = (originalDescription?: string): string => {
+        if (!originalDescription) {
+            return 'A new token inspired by trending pump.fun projects, designed for community growth and success.';
+        }
+
+        // Generate inspired description
+        const inspirationPhrases = [
+            'Inspired by the success of trending tokens',
+            'Building on the foundation of proven concepts',
+            'Taking the best ideas to the next level',
+            'A fresh take on successful tokenomics',
+            'Evolved from community-favorite projects',
+        ];
+
+        const randomPhrase = inspirationPhrases[Math.floor(Math.random() * inspirationPhrases.length)];
+        return `${randomPhrase}. ${originalDescription}`.substring(0, 200);
+    };
+
     const baseCost = 0.2; // SOL
     const premiumFeeCost = 0.1; // SOL per premium feature
 
@@ -56,6 +133,8 @@ export function TokenCreationForm() {
         if (formData.revokeUpdateAuth) total += premiumFeeCost;
         if (showCreatorInfo) total += premiumFeeCost;
         if (showSocialLinks) total += premiumFeeCost;
+        // Add clone fee if in clone mode
+        if (isCloneMode) total += premiumFeeCost;
         return total;
     };
 
@@ -98,6 +177,13 @@ export function TokenCreationForm() {
         }));
     };
 
+    const handleWalletSelect = (address: string) => {
+        setFormData(prev => ({
+            ...prev,
+            creatorAddress: address
+        }));
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!publicKey || !signTransaction) {
@@ -134,6 +220,23 @@ export function TokenCreationForm() {
 
     return (
         <div className="dark-card rounded-lg p-8">
+            {/* Auto-population indicator */}
+            {isAutoPopulated && cloneData && (
+                <div className="mb-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                        <span className="text-green-400 text-xl">🚀</span>
+                        <div>
+                            <h3 className="font-semibold text-green-300 mb-1">
+                                Form Auto-Populated from {cloneData.name}
+                            </h3>
+                            <p className="text-sm text-green-200">
+                                Fields have been filled with inspired variations. Feel free to customize them further!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Token Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -260,20 +363,33 @@ export function TokenCreationForm() {
                                 <label className="block text-primary font-medium mb-2">
                                     Creator's Address *
                                 </label>
-                                <input
-                                    type="text"
-                                    name="creatorAddress"
-                                    value={formData.creatorAddress}
-                                    onChange={handleInputChange}
-                                    required={showCreatorInfo}
-                                    className="w-full px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    placeholder="Ex: Your Solana address"
-                                />
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        name="creatorAddress"
+                                        value={formData.creatorAddress}
+                                        onChange={handleInputChange}
+                                        required={showCreatorInfo}
+                                        className="flex-1 px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        placeholder="Ex: Your Solana address"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWalletFinder(true)}
+                                        className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
+                                        title="Find High-SOL Wallets"
+                                    >
+                                        💰 Find Wallets
+                                    </button>
+                                </div>
                                 {formData.creatorAddress && !isValidSolanaAddress(formData.creatorAddress) && (
                                     <p className="text-red-400 text-sm mt-1">
                                         Please enter a valid Solana address
                                     </p>
                                 )}
+                                <p className="text-gray-400 text-xs mt-1">
+                                    💡 Use high-SOL wallets to increase your token's credibility
+                                </p>
                             </div>
 
                             <div>
@@ -503,6 +619,14 @@ export function TokenCreationForm() {
                     {isLoading ? 'Creating Token...' : `Create Token (${calculateTotalCost()} SOL)`}
                 </button>
             </form>
+
+            {/* Wallet Finder Modal */}
+            <WalletFinder
+                isOpen={showWalletFinder}
+                onClose={() => setShowWalletFinder(false)}
+                onSelectWallet={handleWalletSelect}
+                currentCreator={formData.creatorAddress}
+            />
         </div>
     );
 } 
