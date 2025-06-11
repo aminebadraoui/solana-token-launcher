@@ -71,6 +71,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
     });
     const [isDownloadingImage, setIsDownloadingImage] = useState(false);
     const [showFileInput, setShowFileInput] = useState(true);
+    const [isFetchingSocialLinks, setIsFetchingSocialLinks] = useState(false);
 
     // Auto-populate form when clone data is available
     useEffect(() => {
@@ -86,6 +87,11 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
             // Download and convert the cloned image to a File object
             if (cloneData.imageUri) {
                 downloadClonedImage(cloneData.imageUri, cloneData.symbol);
+            }
+
+            // Fetch and extract social links from metadata
+            if (cloneData.metadataUri) {
+                extractSocialLinksFromMetadata(cloneData.metadataUri, cloneData.symbol);
             }
 
             setIsAutoPopulated(true);
@@ -120,6 +126,102 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
     const generateCloneDescription = (originalDescription?: string): string => {
         // Use the actual description directly, no fake additions
         return originalDescription || '';
+    };
+
+    const extractSocialLinksFromMetadata = async (metadataUri: string, tokenSymbol: string) => {
+        setIsFetchingSocialLinks(true);
+        try {
+            console.log(`🔗 Fetching social links from metadata for ${tokenSymbol}:`, metadataUri);
+
+            // Fetch metadata with timeout and fallback gateways (similar to image loading)
+            const ipfsGateways = [
+                'https://ipfs.io/ipfs/',
+                'https://gateway.pinata.cloud/ipfs/',
+                'https://cloudflare-ipfs.com/ipfs/',
+                'https://dweb.link/ipfs/',
+            ];
+
+            let metadataResponse: Response | null = null;
+            let lastError: Error | null = null;
+
+            // Try original URL first
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+                metadataResponse = await fetch(metadataUri, {
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                clearTimeout(timeoutId);
+            } catch (error) {
+                lastError = error as Error;
+                console.log(`Original metadata URL failed for ${tokenSymbol}, trying IPFS gateways...`);
+
+                // Try IPFS gateways if original URL failed
+                if (metadataUri.includes('/ipfs/')) {
+                    const ipfsHash = metadataUri.split('/ipfs/')[1];
+
+                    for (const gateway of ipfsGateways) {
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+                            metadataResponse = await fetch(gateway + ipfsHash, {
+                                signal: controller.signal,
+                                headers: { 'Accept': 'application/json' }
+                            });
+
+                            clearTimeout(timeoutId);
+                            if (metadataResponse.ok) break;
+                        } catch (gatewayError) {
+                            continue; // Try next gateway
+                        }
+                    }
+                }
+            }
+
+            if (metadataResponse && metadataResponse.ok) {
+                const metadata = await metadataResponse.json();
+
+                console.log(`📄 Metadata fetched for ${tokenSymbol}:`, metadata);
+
+                // Extract social links from metadata
+                const socialLinks = {
+                    twitter: metadata.twitter || metadata.x || '',
+                    telegram: metadata.telegram || '',
+                    website: metadata.website || ''
+                };
+
+                // Check if we found any social links
+                const hasAnyLinks = Object.values(socialLinks).some(link => link.trim() !== '');
+
+                if (hasAnyLinks) {
+                    console.log(`🎯 Found social links for ${tokenSymbol}:`, socialLinks);
+
+                    // Auto-enable social links toggle
+                    setShowSocialLinks(true);
+
+                    // Update form data with extracted social links
+                    setFormData(prev => ({
+                        ...prev,
+                        twitterLink: socialLinks.twitter,
+                        telegramLink: socialLinks.telegram,
+                        websiteLink: socialLinks.website,
+                    }));
+
+                    console.log(`✅ Auto-enabled social links and populated fields for ${tokenSymbol}`);
+                } else {
+                    console.log(`ℹ️ No social links found in metadata for ${tokenSymbol}`);
+                }
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.log(`⚠️ Failed to fetch metadata for ${tokenSymbol}:`, errorMessage);
+        } finally {
+            setIsFetchingSocialLinks(false);
+        }
     };
 
     const downloadClonedImage = async (imageUri: string, tokenSymbol: string) => {
@@ -307,6 +409,25 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                             </h3>
                             <p className="text-sm text-green-200">
                                 Fields have been filled with inspired variations. Feel free to customize them further!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Social links fetching indicator */}
+            {isCloneMode && isFetchingSocialLinks && (
+                <div className="mb-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-lg p-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
+                            <div className="animate-spin w-5 h-5 border-2 border-cyan-300 border-t-transparent rounded-full"></div>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-cyan-300 mb-1">
+                                🔗 Extracting Social Links...
+                            </h3>
+                            <p className="text-sm text-cyan-200">
+                                Checking token metadata for Twitter, Telegram, and Website links
                             </p>
                         </div>
                     </div>
