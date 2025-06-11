@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { createTokenMint } from '@/lib/tokenMinting';
-import WalletFinder from './WalletFinder';
+import TopCreatorsModal from './TopCreatorsModal';
 
 interface TokenFormData {
     name: string;
@@ -50,7 +50,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
     const [isLoading, setIsLoading] = useState(false);
     const [showCreatorInfo, setShowCreatorInfo] = useState(false);
     const [showSocialLinks, setShowSocialLinks] = useState(false);
-    const [showWalletFinder, setShowWalletFinder] = useState(false);
+    const [showTopCreators, setShowTopCreators] = useState(false);
     const [isAutoPopulated, setIsAutoPopulated] = useState(false);
     const [formData, setFormData] = useState<TokenFormData>({
         name: '',
@@ -387,7 +387,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         }));
     };
 
-    const handleWalletSelect = (address: string) => {
+    const handleCreatorSelect = (address: string) => {
         setFormData(prev => ({
             ...prev,
             creatorAddress: address
@@ -724,11 +724,11 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setShowWalletFinder(true)}
+                                        onClick={() => setShowTopCreators(true)}
                                         className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
-                                        title="Replace with High-SOL Creator Wallet"
+                                        title="Select from Top Pump.fun Creators"
                                     >
-                                        👑 Replace with Top Creator
+                                        👑 Top Creators
                                     </button>
                                 </div>
 
@@ -1003,11 +1003,11 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 </button>
             </form>
 
-            {/* Wallet Finder Modal */}
-            <WalletFinder
-                isOpen={showWalletFinder}
-                onClose={() => setShowWalletFinder(false)}
-                onSelectWallet={handleWalletSelect}
+            {/* Top Creators Modal */}
+            <TopCreatorsModal
+                isOpen={showTopCreators}
+                onClose={() => setShowTopCreators(false)}
+                onSelectCreator={handleCreatorSelect}
                 currentCreator={formData.creatorAddress}
             />
         </div>
