@@ -7,17 +7,19 @@ import {
     Keypair,
 } from '@solana/web3.js';
 import {
+    TOKEN_PROGRAM_ID,
     createInitializeMintInstruction,
     createAssociatedTokenAccountInstruction,
     createMintToInstruction,
     createSetAuthorityInstruction,
     getAssociatedTokenAddress,
     getMintLen,
-    TOKEN_PROGRAM_ID,
-    ASSOCIATED_TOKEN_PROGRAM_ID,
     AuthorityType,
 } from '@solana/spl-token';
-import { NFTStorage } from 'nft.storage';
+import {
+    createCreateMetadataAccountV3Instruction,
+    PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID
+} from '@metaplex-foundation/mpl-token-metadata';
 
 interface TokenFormData {
     name: string;
@@ -141,6 +143,61 @@ export async function createTokenMint({
                 formData.supply * Math.pow(10, formData.decimals)
             )
         );
+
+        // Create Metaplex metadata account (THIS IS THE MISSING PIECE!)
+        console.log('📋 Adding Metaplex metadata creation instruction...');
+        const metadataAccount = PublicKey.findProgramAddressSync(
+            [
+                Buffer.from('metadata'),
+                TOKEN_METADATA_PROGRAM_ID.toBytes(),
+                mintAddress.toBytes(),
+            ],
+            TOKEN_METADATA_PROGRAM_ID
+        )[0];
+
+        // Prepare creators array for metadata
+        const creators = [];
+        if (formData.customCreator && formData.creatorAddress) {
+            try {
+                creators.push({
+                    address: new PublicKey(formData.creatorAddress),
+                    verified: false,
+                    share: 100
+                });
+            } catch (error) {
+                console.warn('⚠️ Invalid creator address, skipping custom creator');
+            }
+        }
+
+        // Create metadata instruction using the v3 function
+        const metadataInstruction = createCreateMetadataAccountV3Instruction(
+            {
+                metadata: metadataAccount,
+                mint: mintAddress,
+                mintAuthority: payer,
+                payer: payer,
+                updateAuthority: payer,
+                systemProgram: SystemProgram.programId,
+            },
+            {
+                createMetadataAccountArgsV3: {
+                    data: {
+                        name: formData.name,
+                        symbol: formData.symbol,
+                        uri: metadataUri,
+                        sellerFeeBasisPoints: 0,
+                        creators: creators.length > 0 ? creators : null,
+                        collection: null,
+                        uses: null,
+                    },
+                    isMutable: !formData.revokeUpdateAuth,
+                    collectionDetails: null,
+                }
+            }
+        );
+
+        tokenTransaction.add(metadataInstruction);
+        console.log('✅ Metaplex metadata instruction added');
 
         // Add authority revocation instructions if requested
         if (formData.revokeMintAuth) {
@@ -304,7 +361,14 @@ async function uploadMetadataToIPFS(formData: TokenFormData): Promise<string> {
     try {
         // Check if we should use real IPFS uploads or placeholders
         const useRealIPFS = process.env.NEXT_PUBLIC_USE_REAL_IPFS === 'true';
-        const nftStorageApiKey = process.env.NFT_STORAGE_API_KEY;
+        const nftStorageApiKey = process.env.NEXT_PUBLIC_NFT_STORAGE_API_KEY;
+
+        // DEBUG: Log environment variable values
+        console.log('🔍 DEBUG - Environment Variables:');
+        console.log('  NEXT_PUBLIC_USE_REAL_IPFS:', process.env.NEXT_PUBLIC_USE_REAL_IPFS);
+        console.log('  useRealIPFS:', useRealIPFS);
+        console.log('  NFT_STORAGE_API_KEY exists:', !!nftStorageApiKey);
+        console.log('  NFT_STORAGE_API_KEY length:', nftStorageApiKey?.length || 0);
 
         if (useRealIPFS && nftStorageApiKey) {
             console.log('🌐 Using real IPFS uploads via NFT.Storage');
@@ -322,80 +386,75 @@ async function uploadMetadataToIPFS(formData: TokenFormData): Promise<string> {
 }
 
 async function uploadToRealIPFS(formData: TokenFormData, apiKey: string): Promise<string> {
-    const { NFTStorage, File } = await import('nft.storage');
-    const client = new NFTStorage({ token: apiKey });
+    console.log('🌐 Using Server-Side NFT.Storage Upload');
 
-    // Prepare creators array based on custom creator option
-    const creators = [];
-    if (formData.customCreator && formData.creatorAddress) {
-        creators.push({
-            address: formData.creatorAddress,
-            verified: false, // Cannot verify programmatically
-            share: 100 // 100% attribution to the custom creator
-        });
-    }
-
-    let imageUri = '';
-
-    // 1. Upload image to IPFS if provided
-    if (formData.image) {
-        console.log('📸 Uploading image to IPFS...');
-        try {
-            // Convert File to format expected by NFT.Storage
-            const imageBuffer = await formData.image.arrayBuffer();
-            const imageFile = new File([imageBuffer], formData.image.name, {
-                type: formData.image.type,
-            });
-
-            const imageCid = await client.storeBlob(imageFile);
-            imageUri = `ipfs://${imageCid}`;
-            console.log('✅ Image uploaded successfully:', imageUri);
-        } catch (error) {
-            console.error('❌ Failed to upload image:', error);
-            throw new Error('Failed to upload image to IPFS');
-        }
-    }
-
-    // 2. Create complete metadata object
-    const metadata = {
-        name: formData.name,
-        symbol: formData.symbol,
-        description: formData.description,
-        image: imageUri,
-        attributes: [],
-        properties: {
-            files: imageUri ? [
-                {
-                    uri: imageUri,
-                    type: formData.image?.type || 'image/png',
-                }
-            ] : [],
-            category: 'image',
-            creators: creators.length > 0 ? creators : undefined,
-        },
-        // Include creators at root level as well (Metaplex standard)
-        ...(creators.length > 0 && { creators }),
-    };
-
-    // 3. Upload metadata to IPFS
-    console.log('📄 Uploading metadata to IPFS...');
     try {
-        const metadataFile = new File(
-            [JSON.stringify(metadata, null, 2)],
-            'metadata.json',
-            { type: 'application/json' }
-        );
+        // Prepare creators array based on custom creator option
+        const creators = [];
+        if (formData.customCreator && formData.creatorAddress) {
+            creators.push({
+                address: formData.creatorAddress,
+                verified: false,
+                share: 100
+            });
+        }
 
-        const metadataCid = await client.storeBlob(metadataFile);
-        const metadataUri = `ipfs://${metadataCid}`;
+        // Create metadata object (without image URI initially)
+        const metadata = {
+            name: formData.name,
+            symbol: formData.symbol,
+            description: formData.description,
+            attributes: [],
+            properties: {
+                category: 'image',
+                creators: creators.length > 0 ? creators : undefined,
+            },
+            ...(creators.length > 0 && { creators }),
+        };
 
-        console.log('✅ Metadata uploaded successfully:', metadataUri);
-        console.log('📋 Metadata content:', metadata);
+        // Use server-side API route to upload both image and metadata
+        console.log('📤 Uploading to server-side API...');
 
-        return metadataUri;
+        const uploadFormData = new FormData();
+        if (formData.image) {
+            console.log('📸 Adding image to FormData:', formData.image.name, formData.image.type, formData.image.size);
+            uploadFormData.append('image', formData.image);
+        } else {
+            console.log('⚠️ No image provided, adding empty file');
+            // Add an empty file if no image is provided
+            uploadFormData.append('image', new File([], '', { type: 'application/octet-stream' }));
+        }
+        uploadFormData.append('metadata', JSON.stringify(metadata));
+
+        console.log('📋 FormData contents:');
+        for (const [key, value] of uploadFormData.entries()) {
+            console.log(`  ${key}:`, value instanceof File ? `File(${value.name}, ${value.type}, ${value.size}b)` : value);
+        }
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadFormData,
+            // Don't set Content-Type header - let browser set it automatically with boundary
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Server upload failed: ${errorData.error || response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Server-side upload successful:', result);
+
+        if (!result.success || !result.metadataUri) {
+            throw new Error('Invalid response from upload API');
+        }
+
+        console.log('📋 Final metadata URI:', result.metadataUri);
+        return result.metadataUri;
+
     } catch (error) {
-        console.error('❌ Failed to upload metadata:', error);
-        throw new Error('Failed to upload metadata to IPFS');
+        console.error('❌ Server-side upload failed:', error);
+        throw error;
     }
 }
 
