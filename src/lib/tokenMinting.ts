@@ -53,30 +53,56 @@ export async function createTokenMint({
     formData,
     totalCost,
 }: CreateTokenParams) {
+    let paymentSignature: string | null = null;
+
     try {
-        // Step 1: Create payment transaction
-        await processPayment(connection, payer, signTransaction, totalCost);
+        // Debug logging at start
+        console.log('🔧 Token Minting Process Started');
+        console.log('💰 Total cost to charge:', totalCost, 'SOL');
+        console.log('🌐 RPC Endpoint:', connection.rpcEndpoint);
+        console.log('📊 Token Details:', {
+            name: formData.name,
+            symbol: formData.symbol,
+            supply: formData.supply,
+            decimals: formData.decimals,
+            hasImage: !!formData.image
+        });
 
-        // Step 2: Upload metadata to IPFS
+        // Step 1: Upload metadata to IPFS FIRST (before any payment)
+        console.log('📤 Step 1: Uploading metadata to IPFS...');
+        const startTime = Date.now();
         const metadataUri = await uploadMetadataToIPFS(formData);
+        const uploadTime = Date.now() - startTime;
+        console.log(`✅ Metadata uploaded successfully in ${uploadTime}ms`);
+        console.log('🔗 Metadata URI:', metadataUri);
 
-        // Step 3: Create mint keypair
+        // Step 2: Create mint keypair
+        console.log('🔑 Step 2: Generating mint keypair...');
         const mintKeypair = Keypair.generate();
         const mintAddress = mintKeypair.publicKey;
+        console.log('📍 Mint Address:', mintAddress.toString());
 
-        // Step 4: Get associated token account address
+        // Step 3: Get associated token account address
+        console.log('🏦 Step 3: Calculating associated token account...');
         const associatedTokenAddress = await getAssociatedTokenAddress(
             mintAddress,
             payer
         );
+        console.log('📍 Token Account:', associatedTokenAddress.toString());
 
-        // Step 5: Create all instructions
+        // Check account balances before transaction
+        const balance = await connection.getBalance(payer);
+        console.log('💳 Wallet Balance:', balance / LAMPORTS_PER_SOL, 'SOL');
+
+        // Step 4: Create all token creation instructions
+        console.log('📋 Step 4: Preparing token creation transaction...');
         const lamports = await connection.getMinimumBalanceForRentExemption(getMintLen([]));
+        console.log('💰 Rent exemption required:', lamports / LAMPORTS_PER_SOL, 'SOL');
 
-        const transaction = new Transaction();
+        const tokenTransaction = new Transaction();
 
         // Create mint account
-        transaction.add(
+        tokenTransaction.add(
             SystemProgram.createAccount({
                 fromPubkey: payer,
                 newAccountPubkey: mintAddress,
@@ -87,7 +113,7 @@ export async function createTokenMint({
         );
 
         // Initialize mint
-        transaction.add(
+        tokenTransaction.add(
             createInitializeMintInstruction(
                 mintAddress,
                 formData.decimals,
@@ -97,7 +123,7 @@ export async function createTokenMint({
         );
 
         // Create associated token account
-        transaction.add(
+        tokenTransaction.add(
             createAssociatedTokenAccountInstruction(
                 payer, // payer
                 associatedTokenAddress, // associated token account
@@ -107,7 +133,7 @@ export async function createTokenMint({
         );
 
         // Mint tokens
-        transaction.add(
+        tokenTransaction.add(
             createMintToInstruction(
                 mintAddress,
                 associatedTokenAddress,
@@ -118,7 +144,7 @@ export async function createTokenMint({
 
         // Add authority revocation instructions if requested
         if (formData.revokeMintAuth) {
-            transaction.add(
+            tokenTransaction.add(
                 createSetAuthorityInstruction(
                     mintAddress,
                     payer, // current authority
@@ -129,7 +155,7 @@ export async function createTokenMint({
         }
 
         if (formData.revokeFreezeAuth) {
-            transaction.add(
+            tokenTransaction.add(
                 createSetAuthorityInstruction(
                     mintAddress,
                     payer, // current authority
@@ -139,39 +165,113 @@ export async function createTokenMint({
             );
         }
 
-        // Set recent blockhash and fee payer
+        // Step 5: Add payment instruction to the SAME transaction (ATOMIC)
+        console.log(`💳 Step 5: Adding payment instruction to token transaction (${totalCost} SOL)...`);
+        console.log('🔒 Using ATOMIC transaction - payment and token creation together!');
+
+        // Add payment instruction to the existing token transaction
+        tokenTransaction.add(
+            SystemProgram.transfer({
+                fromPubkey: payer,
+                toPubkey: PLATFORM_WALLET,
+                lamports: totalCost * LAMPORTS_PER_SOL,
+            })
+        );
+
+        // Step 6: Execute COMBINED transaction (payment + token creation)
+        console.log('🚀 Step 6: Executing atomic transaction (payment + token creation)...');
         const { blockhash } = await connection.getLatestBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = payer;
+        console.log('🔗 Latest Blockhash:', blockhash);
+
+        tokenTransaction.recentBlockhash = blockhash;
+        tokenTransaction.feePayer = payer;
 
         // Partially sign with mint keypair
-        transaction.partialSign(mintKeypair);
+        console.log('✍️ Signing transaction with mint keypair...');
+        tokenTransaction.partialSign(mintKeypair);
 
-        // Sign with wallet
-        const signedTransaction = await signTransaction(transaction);
+        // Sign with wallet (SINGLE SIGNATURE for everything)
+        console.log('✍️ Requesting wallet signature for ATOMIC transaction...');
+        console.log('ℹ️ This single signature will handle payment AND token creation safely!');
+        const signedTokenTransaction = await signTransaction(tokenTransaction);
+        console.log('✅ Atomic transaction signed by wallet');
 
         // Send transaction
-        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-        await connection.confirmTransaction(signature);
+        console.log('📡 Sending atomic transaction to blockchain...');
+        const txStartTime = Date.now();
+        const atomicSignature = await connection.sendRawTransaction(signedTokenTransaction.serialize());
+        console.log('📨 Atomic transaction sent, signature:', atomicSignature);
 
-        // Step 6: Log token creation
+        console.log('⏳ Waiting for confirmation...');
+        await connection.confirmTransaction(atomicSignature);
+        const txTime = Date.now() - txStartTime;
+        console.log(`✅ Atomic transaction confirmed successfully in ${txTime}ms`);
+        console.log('🎉 Payment and token creation completed safely together!');
+
+        // Set both signatures to the same atomic transaction
+        paymentSignature = atomicSignature;
+        const tokenSignature = atomicSignature;
+
+        // Step 7: Log token creation
         await logTokenCreation({
             walletAddress: payer.toString(),
             tokenMint: mintAddress.toString(),
             formData,
             metadataUri,
-            signature,
+            signature: tokenSignature,
         });
 
         return {
             mintAddress: mintAddress.toString(),
             tokenAccount: associatedTokenAddress.toString(),
             metadataUri,
-            signature,
+            signature: tokenSignature,
+            paymentSignature,
         };
     } catch (error) {
-        console.error('Error in createTokenMint:', error);
-        throw error;
+        console.error('❌ CRITICAL ERROR in createTokenMint');
+        console.error('🔍 Error Details:', {
+            error: error,
+            message: error instanceof Error ? error.message : 'Unknown error',
+            name: error instanceof Error ? error.name : 'Unknown',
+            stack: error instanceof Error ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            rpcEndpoint: connection.rpcEndpoint,
+            walletAddress: payer.toString(),
+            totalCost: totalCost,
+            paymentProcessed: !!paymentSignature
+        });
+
+        // Check wallet balance after error
+        try {
+            const balanceAfterError = await connection.getBalance(payer);
+            console.error('💳 Wallet balance after error:', balanceAfterError / LAMPORTS_PER_SOL, 'SOL');
+        } catch (balanceError) {
+            console.error('❌ Could not check wallet balance after error:', balanceError);
+        }
+
+        // With atomic transactions, payment and token creation succeed or fail together
+        if (paymentSignature) {
+            console.error('⚠️ This should not happen - atomic transaction had partial success!');
+            console.error('🧾 Atomic transaction signature:', paymentSignature);
+            console.error('💰 Amount that might have been charged:', totalCost, 'SOL');
+        } else {
+            console.log('✅ No charges applied - atomic transaction failed safely');
+        }
+
+        // Enhanced error handling with specific error types
+        const enhancedError = new Error(error instanceof Error ? error.message : 'Unknown error');
+        (enhancedError as any).originalError = error;
+        (enhancedError as any).step = paymentSignature ? 'atomic_transaction_partial' : 'atomic_transaction_failed';
+        (enhancedError as any).paymentProcessed = !!paymentSignature;
+        (enhancedError as any).debugInfo = {
+            rpcEndpoint: connection.rpcEndpoint,
+            walletAddress: payer.toString(),
+            totalCost: totalCost,
+            timestamp: new Date().toISOString()
+        };
+
+        throw enhancedError;
     }
 }
 

@@ -402,15 +402,34 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
             return;
         }
 
-        // Validate custom creator address if Creator's Info is enabled
+        // Validate custom creator address if Creator's Info is enabled and address is provided
         if (showCreatorInfo && formData.creatorAddress && !isValidSolanaAddress(formData.creatorAddress)) {
             alert('Please enter a valid Solana address for the creator');
             return;
         }
 
         setIsLoading(true);
+
+        // Enhanced debug logging
+        console.log('🚀 Starting token creation process...');
+        console.log('📊 Form Data:', {
+            name: formData.name,
+            symbol: formData.symbol,
+            supply: formData.supply,
+            decimals: formData.decimals,
+            description: formData.description,
+            hasImage: !!formData.image,
+            imageSize: formData.image ? (formData.image.size / 1024).toFixed(2) + ' KB' : 'No image',
+            customCreator: showCreatorInfo,
+            creatorAddress: formData.creatorAddress,
+            showSocialLinks,
+            totalCost: calculateTotalCost()
+        });
+        console.log('🌐 Connection endpoint:', connection.rpcEndpoint);
+        console.log('👛 Wallet address:', publicKey.toString());
+
         try {
-            await createTokenMint({
+            const result = await createTokenMint({
                 connection,
                 payer: publicKey,
                 signTransaction,
@@ -420,10 +439,78 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 },
                 totalCost: calculateTotalCost()
             });
-            alert('Token created successfully!');
+
+            // Success logging
+            console.log('✅ Token creation completed successfully!');
+            console.log('📍 Results:', {
+                mintAddress: result.mintAddress,
+                tokenAccount: result.tokenAccount,
+                signature: result.signature,
+                metadataUri: result.metadataUri,
+                paymentSignature: result.paymentSignature
+            });
+
+            // Redirect to success page with token data
+            const params = new URLSearchParams({
+                mint: result.mintAddress,
+                name: formData.name,
+                symbol: formData.symbol,
+                signature: result.signature
+            });
+
+            window.location.href = `/success?${params.toString()}`;
         } catch (error) {
-            console.error('Error creating token:', error);
-            alert('Failed to create token. Please try again.');
+            // Enhanced error logging
+            console.error('❌ Token Creation Failed');
+            console.error('📋 Error Details:', {
+                error: error,
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                timestamp: new Date().toISOString(),
+                formData: {
+                    name: formData.name,
+                    symbol: formData.symbol,
+                    hasImage: !!formData.image
+                }
+            });
+
+            // Determine error type and redirect to error page
+            let errorType = 'unknown';
+            let errorStep = 'unknown';
+            let errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+            // Map specific error types for atomic transactions
+            if (errorMessage.includes('insufficient funds') || errorMessage.includes('not enough SOL')) {
+                errorType = 'insufficient_funds';
+                errorStep = 'atomic_transaction';
+            } else if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected')) {
+                errorType = 'user_rejected';
+                errorStep = 'atomic_transaction';
+            } else if (errorMessage.includes('network') || errorMessage.includes('Connection')) {
+                errorType = 'network_error';
+                errorStep = 'connection';
+            } else if (errorMessage.includes('IPFS') || errorMessage.includes('upload')) {
+                errorType = 'upload_failed';
+                errorStep = 'metadata_upload';
+            } else if (errorMessage.includes('transaction failed') || errorMessage.includes('Transaction failed')) {
+                errorType = 'transaction_failed';
+                errorStep = 'atomic_transaction';
+            } else if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+                errorType = 'timeout';
+                errorStep = 'atomic_transaction';
+            } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
+                errorType = 'validation_error';
+                errorStep = 'validation';
+            }
+
+            // Redirect to error page with error details
+            const params = new URLSearchParams({
+                error: errorType,
+                step: errorStep,
+                message: encodeURIComponent(errorMessage)
+            });
+
+            window.location.href = `/error?${params.toString()}`;
         } finally {
             setIsLoading(false);
         }
@@ -693,13 +780,12 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 {/* Description */}
                 <div>
                     <label className="block text-primary font-medium mb-2">
-                        Description *
+                        Description
                     </label>
                     <textarea
                         name="description"
                         value={formData.description}
                         onChange={handleInputChange}
-                        required
                         rows={3}
                         className="w-full px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         placeholder="Here you can describe your token"
@@ -734,7 +820,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-primary font-medium mb-2">
-                                    Creator's Address *
+                                    Creator's Address
                                 </label>
                                 <div className="flex gap-2">
                                     <input
@@ -742,7 +828,6 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                                         name="creatorAddress"
                                         value={formData.creatorAddress}
                                         onChange={handleInputChange}
-                                        required={showCreatorInfo}
                                         className="flex-1 px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                         placeholder="Ex: Your Solana address"
                                     />
@@ -785,14 +870,13 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
 
                             <div>
                                 <label className="block text-primary font-medium mb-2">
-                                    Creator's Name *
+                                    Creator's Name
                                 </label>
                                 <input
                                     type="text"
                                     name="creatorName"
                                     value={formData.creatorName}
                                     onChange={handleInputChange}
-                                    required={showCreatorInfo}
                                     className="w-full px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     placeholder="Ex: Luna Launch"
                                 />
@@ -829,46 +913,43 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-primary font-medium mb-2">
-                                    Telegram Link *
+                                    Telegram Link
                                 </label>
                                 <input
-                                    type="url"
+                                    type="text"
                                     name="telegramLink"
                                     value={formData.telegramLink}
                                     onChange={handleInputChange}
-                                    required={showSocialLinks}
                                     className="w-full px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    placeholder="Ex: https://t.me/lunalaunch"
+                                    placeholder="Ex: https://t.me/lunalaunch or @username"
                                 />
                             </div>
 
                             <div>
                                 <label className="block text-primary font-medium mb-2">
-                                    Twitter or X Link *
+                                    Twitter or X Link
                                 </label>
                                 <input
-                                    type="url"
+                                    type="text"
                                     name="twitterLink"
                                     value={formData.twitterLink}
                                     onChange={handleInputChange}
-                                    required={showSocialLinks}
                                     className="w-full px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    placeholder="Ex: https://x.com/@lunalaunch"
+                                    placeholder="Ex: https://x.com/@lunalaunch or @username"
                                 />
                             </div>
 
                             <div>
                                 <label className="block text-primary font-medium mb-2">
-                                    Website Link *
+                                    Website Link
                                 </label>
                                 <input
-                                    type="url"
+                                    type="text"
                                     name="websiteLink"
                                     value={formData.websiteLink}
                                     onChange={handleInputChange}
-                                    required={showSocialLinks}
                                     className="w-full px-4 py-3 dark-input rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    placeholder="Ex: https://www.lunalaunch.com"
+                                    placeholder="Ex: https://www.lunalaunch.com or your domain"
                                 />
                             </div>
                         </div>
@@ -1010,6 +1091,21 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                     </div>
                 </div>
 
+                {/* Safety Notice */}
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-3">
+                        <span className="text-green-400 text-xl">🔒</span>
+                        <div>
+                            <h3 className="font-semibold text-green-300 mb-1">
+                                Safe Atomic Transaction
+                            </h3>
+                            <p className="text-sm text-green-200">
+                                Payment and token creation happen together in one transaction. If anything fails, no charges are applied.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Submit Button */}
                 <button
                     type="submit"
@@ -1017,14 +1113,17 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                         isLoading ||
                         !formData.name ||
                         !formData.symbol ||
-                        !formData.description ||
-                        (showCreatorInfo && (!formData.creatorAddress || !formData.creatorName || !isValidSolanaAddress(formData.creatorAddress))) ||
-                        (showSocialLinks && (!formData.telegramLink || !formData.twitterLink || !formData.websiteLink))
+                        (showCreatorInfo && !!formData.creatorAddress && !isValidSolanaAddress(formData.creatorAddress))
                     }
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 px-8 rounded-lg text-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                     {isLoading ? 'Creating Token...' : `Create Token (${calculateTotalCost()} SOL)`}
                 </button>
+
+                {/* Transaction Info */}
+                <div className="text-center text-muted text-sm mt-2">
+                    <p>💡 You'll only need to approve <strong>one transaction</strong> that handles both payment and token creation safely</p>
+                </div>
             </form>
 
             {/* Top Creators Modal */}
