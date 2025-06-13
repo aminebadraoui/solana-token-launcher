@@ -21,6 +21,20 @@ import {
     PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID
 } from '@metaplex-foundation/mpl-token-metadata';
 
+// IPFS Gateway configuration
+const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
+
+/**
+ * Convert IPFS CID to HTTPS gateway URL for better compatibility
+ * @param cid - The IPFS Content Identifier
+ * @returns HTTPS gateway URL
+ */
+function convertToHttpsGateway(cid: string): string {
+    // Remove ipfs:// prefix if present
+    const cleanCid = cid.replace(/^ipfs:\/\//, '');
+    return `${IPFS_GATEWAY}${cleanCid}`;
+}
+
 interface TokenFormData {
     name: string;
     symbol: string;
@@ -368,11 +382,10 @@ async function uploadMetadataToIPFS(formData: TokenFormData): Promise<string> {
         console.log('  NEXT_PUBLIC_USE_REAL_IPFS:', process.env.NEXT_PUBLIC_USE_REAL_IPFS);
         console.log('  useRealIPFS:', useRealIPFS);
         console.log('  NFT_STORAGE_API_KEY exists:', !!nftStorageApiKey);
-        console.log('  NFT_STORAGE_API_KEY length:', nftStorageApiKey?.length || 0);
 
-        if (useRealIPFS && nftStorageApiKey) {
-            console.log('🌐 Using real IPFS uploads via NFT.Storage');
-            return await uploadToRealIPFS(formData, nftStorageApiKey);
+        if (useRealIPFS) {
+            console.log('🌐 Using real IPFS uploads via Pinata (server-side)');
+            return await uploadToPinata(formData);
         } else {
             console.log('📝 Using placeholder IPFS URIs for testing');
             return await uploadToPlaceholderIPFS(formData);
@@ -385,9 +398,9 @@ async function uploadMetadataToIPFS(formData: TokenFormData): Promise<string> {
     }
 }
 
-async function uploadToRealIPFS(formData: TokenFormData, apiKey: string): Promise<string> {
-    console.log('🌐 Using Server-Side NFT.Storage Upload');
 
+
+async function uploadToPinata(formData: TokenFormData): Promise<string> {
     try {
         // Prepare creators array based on custom creator option
         const creators = [];
@@ -413,16 +426,16 @@ async function uploadToRealIPFS(formData: TokenFormData, apiKey: string): Promis
         };
 
         // Use server-side API route to upload both image and metadata
-        console.log('📤 Uploading to server-side API...');
+        console.log('📤 Uploading to Pinata API...');
 
         const uploadFormData = new FormData();
         if (formData.image) {
             console.log('📸 Adding image to FormData:', formData.image.name, formData.image.type, formData.image.size);
-            uploadFormData.append('image', formData.image);
+            uploadFormData.append('file', formData.image);
         } else {
             console.log('⚠️ No image provided, adding empty file');
             // Add an empty file if no image is provided
-            uploadFormData.append('image', new File([], '', { type: 'application/octet-stream' }));
+            uploadFormData.append('file', new File([], '', { type: 'application/octet-stream' }));
         }
         uploadFormData.append('metadata', JSON.stringify(metadata));
 
@@ -439,24 +452,29 @@ async function uploadToRealIPFS(formData: TokenFormData, apiKey: string): Promis
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(`Server upload failed: ${errorData.error || response.statusText}`);
+            throw new Error(`Pinata upload failed: ${errorData.error || response.statusText}`);
         }
 
         const result = await response.json();
-        console.log('✅ Server-side upload successful:', result);
+        console.log('✅ Pinata upload successful:', result);
 
         if (!result.success || !result.metadataUri) {
-            throw new Error('Invalid response from upload API');
+            throw new Error('Invalid response from Pinata upload API');
         }
 
         console.log('📋 Final metadata URI:', result.metadataUri);
+        console.log('📸 Image URI:', result.imageUri);
+        console.log('📄 Metadata CID:', result.metadataCid);
+
         return result.metadataUri;
 
     } catch (error) {
-        console.error('❌ Server-side upload failed:', error);
+        console.error('❌ Pinata upload failed:', error);
         throw error;
     }
 }
+
+
 
 async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string> {
     // Prepare creators array based on custom creator option
@@ -474,12 +492,12 @@ async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string>
         name: formData.name,
         symbol: formData.symbol,
         description: formData.description,
-        image: formData.image ? 'ipfs://placeholder-image-hash' : '',
+        image: formData.image ? convertToHttpsGateway('placeholder-image-hash') : '',
         attributes: [],
         properties: {
             files: formData.image ? [
                 {
-                    uri: 'ipfs://placeholder-image-hash',
+                    uri: convertToHttpsGateway('placeholder-image-hash'),
                     type: formData.image.type,
                 }
             ] : [],
@@ -496,7 +514,7 @@ async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string>
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // Return placeholder metadata URI
-    return 'ipfs://placeholder-metadata-hash';
+    return convertToHttpsGateway('placeholder-metadata-hash');
 }
 
 async function logTokenCreation(data: {

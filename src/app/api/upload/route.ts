@@ -1,163 +1,183 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as Client from '@web3-storage/w3up-client';
-import { StoreMemory } from '@web3-storage/w3up-client/stores/memory';
-import * as Proof from '@web3-storage/w3up-client/proof';
-import { Signer } from '@web3-storage/w3up-client/principal/ed25519';
+import { PinataSDK } from 'pinata';
 
-// Environment variables for Web3.Storage
-const W3_KEY = process.env.W3_KEY || process.env.NEXT_PUBLIC_W3_KEY || '';
-const W3_PROOF = process.env.W3_PROOF || process.env.NEXT_PUBLIC_W3_PROOF || '';
+// Initialize Pinata client
+const pinata = new PinataSDK({
+    pinataJwt: process.env.PINATA_JWT!,
+    pinataGateway: 'gateway.pinata.cloud'
+});
 
 export async function POST(request: NextRequest) {
+    console.log('🔄 Starting IPFS upload via Pinata...');
+
     try {
-        // Validate Web3.Storage credentials
-        if (!W3_KEY || !W3_PROOF) {
-            console.error('❌ Web3.Storage credentials not found in environment variables');
-            console.error('Missing:', {
-                W3_KEY: !W3_KEY ? 'missing' : 'present',
-                W3_PROOF: !W3_PROOF ? 'missing' : 'present'
-            });
-            return NextResponse.json({
-                error: 'Web3.Storage credentials not configured. Please set W3_KEY and W3_PROOF environment variables.'
-            }, { status: 500 });
+        // Validate environment variables
+        if (!process.env.PINATA_JWT) {
+            console.error('❌ Missing PINATA_JWT environment variable');
+            return NextResponse.json(
+                { error: 'Server configuration error: Missing Pinata JWT' },
+                { status: 500 }
+            );
         }
 
-        // Debug: Log request headers
-        console.log('📋 Request headers:', Object.fromEntries(request.headers.entries()));
-        console.log('📋 Content-Type:', request.headers.get('content-type'));
+        console.log('✅ Pinata JWT found, length:', process.env.PINATA_JWT.length);
 
-        let formData;
-        try {
-            formData = await request.formData();
-        } catch (formDataError) {
-            console.error('❌ Failed to parse FormData:', formDataError);
-            return NextResponse.json({
-                error: `Failed to parse FormData: ${formDataError instanceof Error ? formDataError.message : 'Unknown error'}`,
-                details: 'Ensure you are sending multipart/form-data with image and metadata fields'
-            }, { status: 400 });
-        }
+        // Parse the multipart form data
+        const formData = await request.formData();
+        const file = formData.get('file') as File;
+        const metadata = formData.get('metadata') as string;
 
-        const image = formData.get('image') as File;
-        const metadataString = formData.get('metadata') as string;
-
-        if (!metadataString) {
-            return NextResponse.json({ error: 'No metadata provided' }, { status: 400 });
-        }
-
-        let metadata;
-        try {
-            metadata = JSON.parse(metadataString);
-        } catch (parseError) {
-            return NextResponse.json({ error: 'Invalid metadata JSON' }, { status: 400 });
-        }
-
-        console.log('📤 Starting Web3.Storage upload process...');
-
-        // Initialize Web3.Storage client
-        const client = await createWeb3StorageClient();
-
-        let imageUri = '';
-        let imageCid = '';
-
-        // Step 1: Upload image if provided
-        if (image && image.size > 0) {
-            console.log('📸 Uploading image to Web3.Storage...');
-            console.log('📸 Image details:', { name: image.name, type: image.type, size: image.size });
-
-            try {
-                const imageCidResult = await client.uploadFile(image);
-                imageCid = imageCidResult.toString();
-                imageUri = `ipfs://${imageCid}`;
-                console.log('✅ Image uploaded successfully:', { imageCid, imageUri });
-            } catch (imageError) {
-                console.error('❌ Image upload failed:', imageError);
-                return NextResponse.json({
-                    error: 'Failed to upload image to Web3.Storage',
-                    details: imageError instanceof Error ? imageError.message : 'Unknown error'
-                }, { status: 500 });
-            }
+        // Check if this is a token creation request (has both file and metadata)
+        if (metadata) {
+            console.log('🪙 Token creation upload detected - uploading image and metadata');
+            return await handleTokenCreationUpload(file, metadata);
         } else {
-            console.log('⚠️ No image provided, creating metadata-only upload');
+            console.log('📁 Simple file upload detected');
+            return await handleSimpleFileUpload(file);
         }
 
-        // Step 2: Create complete metadata with image reference
-        const completeMetadata = {
-            ...metadata,
-            ...(imageUri && { image: imageUri })
-        };
+    } catch (error: any) {
+        console.error('❌ Upload failed:', error);
 
-        console.log('📄 Uploading metadata to Web3.Storage...');
-        console.log('📄 Metadata:', completeMetadata);
-
-        // Step 3: Upload metadata
-        let metadataCid = '';
-        let metadataUri = '';
-
-        try {
-            const metadataBlob = new Blob([JSON.stringify(completeMetadata)], {
-                type: 'application/json'
+        // Enhanced error logging
+        if (error.response) {
+            console.error('Pinata API Error Response:', {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data
             });
-            const metadataFile = new File([metadataBlob], 'metadata.json', {
-                type: 'application/json'
-            });
-
-            const metadataCidResult = await client.uploadFile(metadataFile);
-            metadataCid = metadataCidResult.toString();
-            metadataUri = `ipfs://${metadataCid}`;
-            console.log('✅ Metadata uploaded successfully:', { metadataCid, metadataUri });
-        } catch (metadataError) {
-            console.error('❌ Metadata upload failed:', metadataError);
-            return NextResponse.json({
-                error: 'Failed to upload metadata to Web3.Storage',
-                details: metadataError instanceof Error ? metadataError.message : 'Unknown error'
-            }, { status: 500 });
         }
 
-        // Return success response
-        const response = {
-            success: true,
-            imageUri,
-            metadataUri,
-            imageCid,
-            metadataCid,
-            message: 'Successfully uploaded to Web3.Storage'
-        };
+        if (error.message) {
+            console.error('Error message:', error.message);
+        }
 
-        console.log('🎉 Upload completed successfully:', response);
-        return NextResponse.json(response);
-
-    } catch (error) {
-        console.error('❌ Server-side upload error:', error);
-        return NextResponse.json({
-            error: 'Internal server error during upload',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
+        return NextResponse.json(
+            {
+                error: 'Server upload failed',
+                details: error.message || 'Unknown error occurred',
+                type: 'pinata_upload_error'
+            },
+            { status: 500 }
+        );
     }
 }
 
-/**
- * Create and configure Web3.Storage client with UCAN delegation
- */
-async function createWeb3StorageClient() {
-    try {
-        console.log('🔧 Initializing Web3.Storage client...');
-
-        // Load client with specific private key
-        const principal = Signer.parse(W3_KEY);
-        const store = new StoreMemory();
-        const client = await Client.create({ principal, store });
-
-        // Add proof that this agent has been delegated capabilities on the space
-        const proof = await Proof.parse(W3_PROOF);
-        const space = await client.addSpace(proof);
-        await client.setCurrentSpace(space.did());
-
-        console.log('✅ Web3.Storage client initialized successfully');
-        console.log('📍 Space DID:', space.did());
-
-        return client;
-    } catch (error) {
-        console.error('❌ Failed to initialize Web3.Storage client:', error);
-        throw new Error(`Web3.Storage client initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+async function handleSimpleFileUpload(file: File) {
+    if (!file) {
+        console.error('❌ No file provided in request');
+        return NextResponse.json(
+            { error: 'No file provided' },
+            { status: 400 }
+        );
     }
+
+    console.log('📁 File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+    });
+
+    console.log('📤 Uploading file to Pinata...');
+
+    // Upload to Pinata using the correct API method from documentation
+    const uploadResult = await pinata.upload.public.file(file);
+
+    console.log('✅ Pinata upload successful:', {
+        id: uploadResult.id,
+        cid: uploadResult.cid,
+        size: uploadResult.size,
+        name: uploadResult.name
+    });
+
+    // Construct the IPFS URL using the CID
+    const ipfsUrl = `https://gateway.pinata.cloud/ipfs/${uploadResult.cid}`;
+
+    // Return the IPFS hash and URL
+    return NextResponse.json({
+        success: true,
+        ipfsHash: uploadResult.cid,
+        ipfsUrl: ipfsUrl,
+        size: uploadResult.size,
+        id: uploadResult.id,
+        name: uploadResult.name
+    });
+}
+
+async function handleTokenCreationUpload(file: File | null, metadataString: string) {
+    let imageUri = '';
+    let imageCid = '';
+
+    // Upload image if provided
+    if (file && file.size > 0) {
+        console.log('📸 Uploading image to Pinata...', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
+        const imageUploadResult = await pinata.upload.public.file(file);
+        imageCid = imageUploadResult.cid;
+        imageUri = `https://gateway.pinata.cloud/ipfs/${imageCid}`;
+
+        console.log('✅ Image uploaded successfully:', {
+            cid: imageCid,
+            url: imageUri
+        });
+    } else {
+        console.log('⚠️ No image provided or empty file');
+    }
+
+    // Parse and update metadata with image URI
+    let metadata;
+    try {
+        metadata = JSON.parse(metadataString);
+        if (imageUri) {
+            metadata.image = imageUri;
+            // Also update properties.files if it exists
+            if (metadata.properties && metadata.properties.files) {
+                metadata.properties.files = [{
+                    uri: imageUri,
+                    type: file?.type || 'image/png'
+                }];
+            }
+        }
+    } catch (parseError) {
+        console.error('❌ Failed to parse metadata JSON:', parseError);
+        throw new Error('Invalid metadata JSON');
+    }
+
+    console.log('📄 Uploading metadata to Pinata...', {
+        name: metadata.name,
+        symbol: metadata.symbol,
+        hasImage: !!imageUri
+    });
+
+    // Create metadata file and upload
+    const metadataFile = new File(
+        [JSON.stringify(metadata, null, 2)],
+        'metadata.json',
+        { type: 'application/json' }
+    );
+
+    const metadataUploadResult = await pinata.upload.public.file(metadataFile);
+    const metadataCid = metadataUploadResult.cid;
+    const metadataUri = `https://gateway.pinata.cloud/ipfs/${metadataCid}`;
+
+    console.log('✅ Metadata uploaded successfully:', {
+        cid: metadataCid,
+        url: metadataUri
+    });
+
+    // Return both image and metadata results
+    return NextResponse.json({
+        success: true,
+        imageCid,
+        imageUri,
+        metadataCid,
+        metadataUri,
+        // Legacy fields for compatibility
+        ipfsHash: metadataCid,
+        ipfsUrl: metadataUri
+    });
 } 
