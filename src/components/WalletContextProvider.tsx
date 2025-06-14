@@ -32,22 +32,51 @@ export function NoSSRWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function WalletContextProvider({ children }: { children: React.ReactNode }) {
-    // You can also provide a custom RPC endpoint
     const network = WalletAdapterNetwork.Devnet;
-    const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+
+    // Use environment variable or fallback to reliable RPC endpoints
+    const endpoint = useMemo(() => {
+        // Check for custom RPC endpoint in environment variables
+        const customEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT;
+        if (customEndpoint) {
+            return customEndpoint;
+        }
+
+        // Production: Use reliable third-party RPC
+        if (process.env.NODE_ENV === 'production') {
+            return 'https://api.devnet.solana.com';
+        }
+
+        // Development: Use default Solana RPC
+        return clusterApiUrl(network);
+    }, [network]);
 
     const wallets = useMemo(
         () => [
             new PhantomWalletAdapter(),
-            new SolflareWalletAdapter(),
+            new SolflareWalletAdapter({ network }),
             new CoinbaseWalletAdapter(),
         ],
-        []
+        [network]
     );
 
     return (
-        <ConnectionProvider endpoint={endpoint}>
-            <WalletProvider wallets={wallets} autoConnect={false}>
+        <ConnectionProvider
+            endpoint={endpoint}
+            config={{
+                commitment: 'confirmed',
+                confirmTransactionInitialTimeout: 60000,
+                wsEndpoint: undefined, // Disable WebSocket in production to avoid connection issues
+            }}
+        >
+            <WalletProvider
+                wallets={wallets}
+                autoConnect={true}
+                onError={(error) => {
+                    console.error('Wallet connection error:', error);
+                    // Don't throw the error to prevent app crashes
+                }}
+            >
                 <WalletModalProvider>
                     {children}
                 </WalletModalProvider>
