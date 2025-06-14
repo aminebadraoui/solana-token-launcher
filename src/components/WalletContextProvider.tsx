@@ -32,7 +32,10 @@ export function NoSSRWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function WalletContextProvider({ children }: { children: React.ReactNode }) {
-    const network = WalletAdapterNetwork.Devnet;
+    // Switch network based on environment variable
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'MAINNET'
+        ? WalletAdapterNetwork.Mainnet
+        : WalletAdapterNetwork.Devnet;
 
     // Use environment variable or fallback to reliable RPC endpoints
     const endpoint = useMemo(() => {
@@ -42,9 +45,11 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             return customEndpoint;
         }
 
-        // Production: Use reliable third-party RPC
+        // Production: Use reliable third-party RPC based on network
         if (process.env.NODE_ENV === 'production') {
-            return 'https://api.devnet.solana.com';
+            return network === WalletAdapterNetwork.Mainnet
+                ? 'https://api.mainnet-beta.solana.com'
+                : 'https://api.devnet.solana.com';
         }
 
         // Development: Use default Solana RPC
