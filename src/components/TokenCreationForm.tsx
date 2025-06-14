@@ -447,36 +447,77 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         }
 
         try {
-            const result = await createTokenMint({
-                connection,
-                payer: publicKey,
-                sendTransaction,
-                formData: {
-                    ...formData,
-                    customCreator: showCreatorInfo, // Use the toggle state
-                },
-                totalCost: calculateTotalCost()
-            });
+            // Check if we should use direct Phantom integration
+            const { shouldUseSecureSigning } = await import('@/lib/walletUtils');
 
-            // Success logging
-            console.log('✅ Token creation completed successfully!');
-            console.log('📍 Results:', {
-                mintAddress: result.mintAddress,
-                tokenAccount: result.tokenAccount,
-                signature: result.signature,
-                metadataUri: result.metadataUri,
-                paymentSignature: result.paymentSignature
-            });
+            if (shouldUseSecureSigning()) {
+                console.log('🔒 Using DIRECT Phantom integration (bypassing wallet adapter completely)');
+                const { createTokenMintWithPhantomDirect } = await import('@/lib/tokenMinting');
 
-            // Redirect to success page with token data
-            const params = new URLSearchParams({
-                mint: result.mintAddress,
-                name: formData.name,
-                symbol: formData.symbol,
-                signature: result.signature
-            });
+                const result = await createTokenMintWithPhantomDirect({
+                    connection,
+                    payer: publicKey,
+                    formData: {
+                        ...formData,
+                        customCreator: showCreatorInfo,
+                    },
+                    totalCost: calculateTotalCost()
+                });
 
-            window.location.href = `/success?${params.toString()}`;
+                // Success logging
+                console.log('✅ Phantom direct token creation completed successfully!');
+                console.log('📍 Results:', {
+                    mintAddress: result.mintAddress,
+                    tokenAccount: result.tokenAccount,
+                    signature: result.signature,
+                    metadataUri: result.metadataUri,
+                    paymentSignature: result.paymentSignature
+                });
+
+                // Redirect to success page with token data
+                const params = new URLSearchParams({
+                    mint: result.mintAddress,
+                    name: formData.name,
+                    symbol: formData.symbol,
+                    signature: result.signature
+                });
+
+                window.location.href = `/success?${params.toString()}`;
+            } else {
+                console.log('📝 Using wallet adapter for non-Phantom wallet');
+                const { createTokenMint } = await import('@/lib/tokenMinting');
+
+                const result = await createTokenMint({
+                    connection,
+                    payer: publicKey,
+                    sendTransaction,
+                    formData: {
+                        ...formData,
+                        customCreator: showCreatorInfo, // Use the toggle state
+                    },
+                    totalCost: calculateTotalCost()
+                });
+
+                // Success logging
+                console.log('✅ Token creation completed successfully!');
+                console.log('📍 Results:', {
+                    mintAddress: result.mintAddress,
+                    tokenAccount: result.tokenAccount,
+                    signature: result.signature,
+                    metadataUri: result.metadataUri,
+                    paymentSignature: result.paymentSignature
+                });
+
+                // Redirect to success page with token data
+                const params = new URLSearchParams({
+                    mint: result.mintAddress,
+                    name: formData.name,
+                    symbol: formData.symbol,
+                    signature: result.signature
+                });
+
+                window.location.href = `/success?${params.toString()}`;
+            }
         } catch (error) {
             // Enhanced error logging
             console.error('❌ Token Creation Failed');

@@ -693,4 +693,226 @@ async function logTokenCreation(data: {
     } catch (error) {
         console.error('Error logging token creation:', error);
     }
+}
+
+export async function createTokenMintWithPhantomDirect({
+    connection,
+    payer,
+    formData,
+    totalCost,
+}: {
+    connection: Connection;
+    payer: PublicKey;
+    formData: TokenFormData;
+    totalCost: number;
+}) {
+    console.log('🔒 Using DIRECT Phantom integration (completely bypassing wallet adapter)');
+
+    const provider = getPhantomProvider();
+    if (!provider) {
+        throw new Error('Phantom provider not available');
+    }
+
+    if (!provider.isConnected) {
+        throw new Error('Phantom wallet not connected');
+    }
+
+    console.log('✅ Phantom direct provider confirmed:', {
+        isPhantom: provider.isPhantom,
+        isConnected: provider.isConnected,
+        publicKey: provider.publicKey?.toString(),
+        hasSignAndSend: typeof provider.signAndSendTransaction === 'function'
+    });
+
+    let paymentSignature: string | null = null;
+
+    try {
+        // Step 1: Upload metadata to IPFS FIRST
+        console.log('📤 Step 1: Uploading metadata to IPFS...');
+        const metadataUri = await uploadMetadataToIPFS(formData);
+        console.log('✅ Metadata uploaded:', metadataUri);
+
+        // Step 2: Create mint keypair
+        const mintKeypair = Keypair.generate();
+        const mintAddress = mintKeypair.publicKey;
+        console.log('📍 Mint Address:', mintAddress.toString());
+
+        // Step 3: Get associated token account address
+        const associatedTokenAddress = await getAssociatedTokenAddress(
+            mintAddress,
+            payer
+        );
+
+        // Step 4: Build transaction with all instructions
+        const lamports = await connection.getMinimumBalanceForRentExemption(getMintLen([]));
+        const tokenTransaction = new Transaction();
+
+        // Add all token creation instructions (same as before)
+        tokenTransaction.add(
+            SystemProgram.createAccount({
+                fromPubkey: payer,
+                newAccountPubkey: mintAddress,
+                space: getMintLen([]),
+                lamports,
+                programId: TOKEN_PROGRAM_ID,
+            })
+        );
+
+        tokenTransaction.add(
+            createInitializeMintInstruction(
+                mintAddress,
+                formData.decimals,
+                payer,
+                payer
+            )
+        );
+
+        tokenTransaction.add(
+            createAssociatedTokenAccountInstruction(
+                payer,
+                associatedTokenAddress,
+                payer,
+                mintAddress
+            )
+        );
+
+        tokenTransaction.add(
+            createMintToInstruction(
+                mintAddress,
+                associatedTokenAddress,
+                payer,
+                formData.supply * Math.pow(10, formData.decimals)
+            )
+        );
+
+        // Add metadata instruction
+        const metadataAccount = PublicKey.findProgramAddressSync(
+            [
+                Buffer.from('metadata'),
+                TOKEN_METADATA_PROGRAM_ID.toBytes(),
+                mintAddress.toBytes(),
+            ],
+            TOKEN_METADATA_PROGRAM_ID
+        )[0];
+
+        const creators = [];
+        if (formData.customCreator && formData.creatorAddress) {
+            try {
+                creators.push({
+                    address: new PublicKey(formData.creatorAddress),
+                    verified: false,
+                    share: 100
+                });
+            } catch (error) {
+                console.warn('⚠️ Invalid creator address, skipping custom creator');
+            }
+        }
+
+        const metadataInstruction = createCreateMetadataAccountV3Instruction(
+            {
+                metadata: metadataAccount,
+                mint: mintAddress,
+                mintAuthority: payer,
+                payer: payer,
+                updateAuthority: payer,
+                systemProgram: SystemProgram.programId,
+            },
+            {
+                createMetadataAccountArgsV3: {
+                    data: {
+                        name: formData.name,
+                        symbol: formData.symbol,
+                        uri: metadataUri,
+                        sellerFeeBasisPoints: 0,
+                        creators: creators.length > 0 ? creators : null,
+                        collection: null,
+                        uses: null,
+                    },
+                    isMutable: !formData.revokeUpdateAuth,
+                    collectionDetails: null,
+                }
+            }
+        );
+
+        tokenTransaction.add(metadataInstruction);
+
+        // Add authority revocation instructions if requested
+        if (formData.revokeMintAuth) {
+            tokenTransaction.add(
+                createSetAuthorityInstruction(
+                    mintAddress,
+                    payer,
+                    AuthorityType.MintTokens,
+                    null
+                )
+            );
+        }
+
+        if (formData.revokeFreezeAuth) {
+            tokenTransaction.add(
+                createSetAuthorityInstruction(
+                    mintAddress,
+                    payer,
+                    AuthorityType.FreezeAccount,
+                    null
+                )
+            );
+        }
+
+        // Add payment instruction
+        tokenTransaction.add(
+            SystemProgram.transfer({
+                fromPubkey: payer,
+                toPubkey: PLATFORM_WALLET,
+                lamports: totalCost * LAMPORTS_PER_SOL,
+            })
+        );
+
+        // Step 5: Prepare transaction for Phantom
+        const { blockhash } = await connection.getLatestBlockhash();
+        tokenTransaction.recentBlockhash = blockhash;
+        tokenTransaction.feePayer = payer;
+
+        // Partially sign with mint keypair
+        tokenTransaction.partialSign(mintKeypair);
+
+        console.log('🚀 Sending transaction directly to Phantom (NO wallet adapter)');
+        console.log('📋 Transaction details:', {
+            instructions: tokenTransaction.instructions.length,
+            feePayer: tokenTransaction.feePayer?.toString(),
+            recentBlockhash: tokenTransaction.recentBlockhash
+        });
+
+        // Step 6: Use ONLY Phantom's signAndSendTransaction
+        const result = await provider.signAndSendTransaction(tokenTransaction);
+        const signature = result.signature;
+
+        console.log('✅ Phantom direct transaction sent:', signature);
+
+        // Wait for confirmation
+        await connection.confirmTransaction(signature);
+        console.log('✅ Transaction confirmed!');
+
+        paymentSignature = signature;
+
+        // Log token creation
+        await logTokenCreation({
+            walletAddress: payer.toString(),
+            tokenMint: mintAddress.toString(),
+            formData,
+            metadataUri,
+            signature,
+        });
+
+        return {
+            mintAddress: mintAddress.toString(),
+            tokenAccount: associatedTokenAddress.toString(),
+            metadataUri,
+            signature,
+            paymentSignature,
+        };
+    } catch (error) {
+        console.error('❌ Phantom direct transaction failed:', error);
+        throw error;
+    }
 } 
