@@ -3,9 +3,9 @@
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 
-export default function SuccessPage() {
+function SuccessPageContent() {
     const searchParams = useSearchParams();
     const [tokenData, setTokenData] = useState<any>(null);
 
@@ -200,36 +200,32 @@ export default function SuccessPage() {
                             </div>
                             <h3 className="text-xl font-bold text-primary mb-3">3. Build Community</h3>
                             <p className="text-secondary text-sm mb-4">
-                                Promote your token and build an engaged community around it.
+                                Promote your token and build a strong community around it.
                             </p>
-                            <Link
-                                href="/docs"
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                            >
-                                Marketing Guide
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                            </Link>
+                            <div className="space-y-2">
+                                <a
+                                    href="https://twitter.com/compose/tweet"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-600/20 text-sky-300 rounded text-xs hover:bg-sky-600/30 transition-colors"
+                                >
+                                    🐦 Share on Twitter
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Important Notes */}
                 <div className="max-w-4xl mx-auto mb-12">
-                    <div className="dark-card rounded-lg p-6 border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 to-orange-500/5">
-                        <div className="flex items-start gap-3">
-                            <span className="text-yellow-400 text-2xl">⚠️</span>
-                            <div>
-                                <h3 className="text-lg font-bold text-yellow-300 mb-2">Important Notes</h3>
-                                <ul className="text-yellow-200 text-sm space-y-1">
-                                    <li>• <strong>Save your token mint address</strong> - you'll need it for liquidity creation</li>
-                                    <li>• <strong>You'll need SOL and your tokens</strong> to create a liquidity pool</li>
-                                    <li>• <strong>Start with a small liquidity pool</strong> to test trading functionality</li>
-                                    <li>• <strong>Market your token responsibly</strong> and build genuine utility</li>
-                                </ul>
-                            </div>
-                        </div>
+                    <div className="dark-card rounded-xl p-8 border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 to-orange-500/5">
+                        <h3 className="text-xl font-bold text-yellow-300 mb-4">⚠️ Important Notes</h3>
+                        <ul className="space-y-2 text-yellow-200 text-sm">
+                            <li>• Save your token mint address - you'll need it for adding liquidity</li>
+                            <li>• Your token has been created but needs liquidity to be tradeable</li>
+                            <li>• Consider the tokenomics and distribution strategy before adding liquidity</li>
+                            <li>• Always verify contract addresses before interacting with them</li>
+                        </ul>
                     </div>
                 </div>
 
@@ -246,7 +242,7 @@ export default function SuccessPage() {
                             href="/trending"
                             className="px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all"
                         >
-                            Explore Trending Tokens
+                            View Trending Tokens
                         </Link>
                     </div>
                     <Link
@@ -258,5 +254,20 @@ export default function SuccessPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function SuccessPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen dark-gradient-bg flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-secondary">Loading success details...</p>
+                </div>
+            </div>
+        }>
+            <SuccessPageContent />
+        </Suspense>
     );
 } 

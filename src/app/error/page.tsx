@@ -3,9 +3,9 @@
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 
-export default function ErrorPage() {
+function ErrorPageContent() {
     const searchParams = useSearchParams();
     const [errorData, setErrorData] = useState<any>(null);
 
@@ -199,7 +199,7 @@ export default function ErrorPage() {
                                     <label className="block text-sm font-medium text-secondary mb-2">
                                         Error Message
                                     </label>
-                                    <div className="bg-gray-900 text-yellow-400 px-3 py-2 rounded text-sm break-words">
+                                    <div className="bg-gray-900 text-yellow-400 px-3 py-2 rounded text-sm font-mono break-all">
                                         {errorData.message}
                                     </div>
                                 </div>
@@ -208,120 +208,134 @@ export default function ErrorPage() {
                     </div>
                 </div>
 
-                {/* No Charges Notice */}
+                {/* Solutions Card */}
                 <div className="max-w-4xl mx-auto mb-12">
-                    <div className="dark-card rounded-lg p-6 border border-green-500/30 bg-gradient-to-r from-green-500/5 to-emerald-500/5">
-                        <div className="flex items-start gap-3">
-                            <span className="text-green-400 text-2xl">✅</span>
-                            <div>
-                                <h3 className="text-lg font-bold text-green-300 mb-2">No Charges Applied</h3>
-                                <p className="text-green-200 text-sm">
-                                    Since the token creation failed, <strong>no fees were charged to your wallet</strong>.
-                                    You can safely retry the process after addressing the issue below.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    <div className="dark-card rounded-xl p-8 border border-green-500/30">
+                        <h2 className="text-2xl font-bold text-primary mb-6">Suggested Solutions</h2>
 
-                {/* Solution Steps */}
-                <div className="max-w-4xl mx-auto mb-12">
-                    <h2 className="text-3xl font-bold text-primary mb-8 text-center">
-                        🛠️ How to Fix This
-                    </h2>
-
-                    <div className="dark-card rounded-lg p-8">
-                        <h3 className="text-xl font-bold text-primary mb-6">Recommended Solutions</h3>
                         <div className="space-y-4">
                             {solutions.map((solution, index) => (
-                                <div key={index} className="flex items-start gap-4">
-                                    <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                                        <span className="text-purple-300 font-bold text-sm">{index + 1}</span>
+                                <div key={index} className="flex items-start gap-4 p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                                    <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <span className="text-green-400 font-bold text-sm">{index + 1}</span>
                                     </div>
-                                    <p className="text-secondary">{solution}</p>
+                                    <p className="text-green-200 leading-relaxed">{solution}</p>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </div>
 
-                {/* Common Issues */}
-                <div className="max-w-4xl mx-auto mb-12">
-                    <h2 className="text-2xl font-bold text-primary mb-6 text-center">
-                        Common Issues & Solutions
-                    </h2>
+                {/* Action Buttons */}
+                <div className="max-w-4xl mx-auto">
+                    <div className="dark-card rounded-xl p-8 text-center">
+                        <h3 className="text-xl font-bold text-primary mb-6">What would you like to do next?</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Wallet Issues */}
-                        <div className="dark-card rounded-lg p-6 border border-blue-500/30">
-                            <h3 className="text-lg font-bold text-blue-300 mb-3">💳 Wallet Issues</h3>
-                            <ul className="text-secondary text-sm space-y-2">
-                                <li>• Ensure wallet is connected and unlocked</li>
-                                <li>• Check you're on the correct network (Mainnet/Devnet)</li>
-                                <li>• Verify sufficient SOL balance for fees</li>
-                                <li>• Try refreshing the wallet connection</li>
-                            </ul>
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                            <Link
+                                href="/create-token"
+                                className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-200 font-semibold"
+                            >
+                                Try Again
+                            </Link>
+
+                            <Link
+                                href="/docs"
+                                className="px-8 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors font-semibold"
+                            >
+                                View Documentation
+                            </Link>
+
+                            <Link
+                                href="/"
+                                className="px-8 py-3 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-800 transition-colors font-semibold"
+                            >
+                                Go Home
+                            </Link>
                         </div>
 
-                        {/* Network Issues */}
-                        <div className="dark-card rounded-lg p-6 border border-yellow-500/30">
-                            <h3 className="text-lg font-bold text-yellow-300 mb-3">🌐 Network Issues</h3>
-                            <ul className="text-secondary text-sm space-y-2">
-                                <li>• Check Solana network status</li>
-                                <li>• Try during off-peak hours</li>
-                                <li>• Ensure stable internet connection</li>
-                                <li>• Consider increasing transaction priority</li>
-                            </ul>
-                        </div>
-
-                        {/* File Upload Issues */}
-                        <div className="dark-card rounded-lg p-6 border border-purple-500/30">
-                            <h3 className="text-lg font-bold text-purple-300 mb-3">📁 File Upload Issues</h3>
-                            <ul className="text-secondary text-sm space-y-2">
-                                <li>• Use images smaller than 2MB</li>
-                                <li>• Ensure PNG, JPG, or JPEG format</li>
-                                <li>• Try compressing large images</li>
-                                <li>• Check image isn't corrupted</li>
-                            </ul>
-                        </div>
-
-                        {/* Transaction Issues */}
-                        <div className="dark-card rounded-lg p-6 border border-green-500/30">
-                            <h3 className="text-lg font-bold text-green-300 mb-3">⛓️ Transaction Issues</h3>
-                            <ul className="text-secondary text-sm space-y-2">
-                                <li>• Verify all form fields are valid</li>
-                                <li>• Check token symbol isn't already taken</li>
-                                <li>• Ensure creator address is valid</li>
-                                <li>• Try with basic settings first</li>
-                            </ul>
+                        {/* Debug Information */}
+                        <div className="mt-8 pt-6 border-t border-gray-700">
+                            <details className="text-left">
+                                <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300 mb-4">
+                                    Show Debug Information
+                                </summary>
+                                <div className="bg-gray-900 rounded-lg p-4 text-xs font-mono text-gray-400">
+                                    <div className="mb-2">
+                                        <span className="text-gray-500">Timestamp:</span> {new Date().toISOString()}
+                                    </div>
+                                    <div className="mb-2">
+                                        <span className="text-gray-500">Error Code:</span> {errorData.error}
+                                    </div>
+                                    <div className="mb-2">
+                                        <span className="text-gray-500">Step:</span> {errorData.step}
+                                    </div>
+                                    <div className="mb-2">
+                                        <span className="text-gray-500">User Agent:</span> {typeof window !== 'undefined' ? window.navigator.userAgent : 'N/A'}
+                                    </div>
+                                    {errorData.message && (
+                                        <div>
+                                            <span className="text-gray-500">Raw Message:</span> {errorData.message}
+                                        </div>
+                                    )}
+                                </div>
+                            </details>
                         </div>
                     </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="text-center space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link
-                            href="/create-token"
-                            className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
-                        >
-                            Try Again
-                        </Link>
-                        <Link
-                            href="/docs"
-                            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-bold rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all"
-                        >
-                            View Support Guide
-                        </Link>
+                {/* Additional Help */}
+                <div className="max-w-4xl mx-auto mt-12">
+                    <div className="text-center">
+                        <h3 className="text-lg font-semibold text-secondary mb-4">Still need help?</h3>
+                        <p className="text-secondary mb-6">
+                            If you're still experiencing issues, you can check our documentation or reach out for support.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                            <Link
+                                href="/docs"
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600/20 text-blue-300 rounded-lg hover:bg-blue-600/30 transition-colors"
+                            >
+                                📚 Documentation
+                            </Link>
+
+                            <a
+                                href="https://discord.gg/your-discord"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600/20 text-indigo-300 rounded-lg hover:bg-indigo-600/30 transition-colors"
+                            >
+                                💬 Discord Support
+                            </a>
+
+                            <a
+                                href="https://twitter.com/your-twitter"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-6 py-3 bg-sky-600/20 text-sky-300 rounded-lg hover:bg-sky-600/30 transition-colors"
+                            >
+                                🐦 Twitter
+                            </a>
+                        </div>
                     </div>
-                    <Link
-                        href="/"
-                        className="inline-block text-secondary hover:text-primary transition-colors"
-                    >
-                        ← Back to Home
-                    </Link>
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ErrorPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen dark-gradient-bg flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-secondary">Loading error details...</p>
+                </div>
+            </div>
+        }>
+            <ErrorPageContent />
+        </Suspense>
     );
 } 
