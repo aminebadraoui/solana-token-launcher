@@ -86,15 +86,20 @@ async function executeSecureTransaction(
         }
 
         try {
-            // IMPORTANT: Set recent blockhash and fee payer for Phantom
-            const { blockhash } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
+            // Ensure fee payer is set for Phantom (blockhash should already be set)
             transaction.feePayer = transaction.feePayer || provider.publicKey;
 
             console.log('📋 Transaction details for Phantom native API:');
             console.log('  - Instructions:', transaction.instructions.length);
             console.log('  - Fee payer:', transaction.feePayer?.toString());
             console.log('  - Recent blockhash:', transaction.recentBlockhash);
+
+            // Verify transaction is properly prepared
+            if (!transaction.recentBlockhash) {
+                console.warn('⚠️ No recentBlockhash found, fetching new one...');
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+            }
 
             // Use Phantom's RECOMMENDED signAndSendTransaction method
             const { signature } = await provider.signAndSendTransaction(transaction);
@@ -124,13 +129,16 @@ async function executeSecureTransaction(
         console.log('✅ This should work securely with Solflare, Coinbase, and other wallets!');
 
         try {
-            // IMPORTANT: Set recent blockhash for the transaction
-            const { blockhash } = await connection.getLatestBlockhash();
-            transaction.recentBlockhash = blockhash;
-
             console.log('📋 Transaction details for wallet adapter:');
             console.log('  - Instructions:', transaction.instructions.length);
             console.log('  - Recent blockhash:', transaction.recentBlockhash);
+
+            // Verify transaction is properly prepared
+            if (!transaction.recentBlockhash) {
+                console.warn('⚠️ No recentBlockhash found, fetching new one...');
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+            }
 
             const signature = await sendTransaction(transaction, connection);
             console.log('📨 Wallet adapter transaction sent, signature:', signature);
@@ -343,12 +351,22 @@ export async function createTokenMint({
             })
         );
 
-        // Partially sign with mint keypair
+        // Step 6: Prepare transaction with blockhash and fee payer BEFORE signing
+        console.log('🚀 Step 6: Preparing atomic transaction (payment + token creation)...');
+        const { blockhash } = await connection.getLatestBlockhash();
+        tokenTransaction.recentBlockhash = blockhash;
+        tokenTransaction.feePayer = payer;
+
+        console.log('📋 Transaction prepared with:');
+        console.log('  - Recent blockhash:', blockhash);
+        console.log('  - Fee payer:', payer.toString());
+        console.log('  - Instructions:', tokenTransaction.instructions.length);
+
+        // Partially sign with mint keypair AFTER setting blockhash
         console.log('✍️ Signing transaction with mint keypair...');
         tokenTransaction.partialSign(mintKeypair);
 
-        // Step 6: Execute transaction using secure signing method
-        console.log('🚀 Step 6: Executing atomic transaction (payment + token creation)...');
+        // Execute transaction using secure signing method
         const txStartTime = Date.now();
 
         const atomicSignature = await executeSecureTransaction(
