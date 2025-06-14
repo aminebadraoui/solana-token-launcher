@@ -53,7 +53,7 @@ interface TokenFormData {
 interface CreateTokenParams {
     connection: Connection;
     payer: PublicKey;
-    signTransaction: (transaction: Transaction) => Promise<Transaction>;
+    sendTransaction: (transaction: Transaction, connection: Connection) => Promise<string>;
     formData: TokenFormData;
     totalCost: number;
 }
@@ -63,10 +63,103 @@ const PLATFORM_WALLET = new PublicKey(
     process.env.NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS || '11111111111111111111111111111112'
 );
 
+/**
+ * Secure transaction execution that uses Phantom's native signAndSendTransaction when available
+ */
+async function executeSecureTransaction(
+    transaction: Transaction,
+    connection: Connection,
+    sendTransaction: (transaction: Transaction, connection: Connection) => Promise<string>
+): Promise<string> {
+    // Log wallet detection info for debugging
+    logWalletInfo();
+
+    // Check if we should use Phantom's native signAndSendTransaction
+    if (shouldUseSecureSigning()) {
+        // SECURE: Use Phantom's native signAndSendTransaction API directly
+        console.log('🔒 Using Phantom native signAndSendTransaction (RECOMMENDED by Phantom docs)');
+        console.log('✅ This eliminates "malicious app" warnings completely!');
+
+        const provider = getPhantomProvider();
+        if (!provider) {
+            throw new Error('Phantom provider not available. Please ensure Phantom wallet is installed and connected.');
+        }
+
+        try {
+            // IMPORTANT: Set recent blockhash and fee payer for Phantom
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+            transaction.feePayer = transaction.feePayer || provider.publicKey;
+
+            console.log('📋 Transaction details for Phantom native API:');
+            console.log('  - Instructions:', transaction.instructions.length);
+            console.log('  - Fee payer:', transaction.feePayer?.toString());
+            console.log('  - Recent blockhash:', transaction.recentBlockhash);
+
+            // Use Phantom's RECOMMENDED signAndSendTransaction method
+            const { signature } = await provider.signAndSendTransaction(transaction);
+            console.log('📨 Phantom native transaction sent, signature:', signature);
+
+            // Wait for confirmation
+            console.log('⏳ Waiting for confirmation...');
+            await connection.confirmTransaction(signature);
+            console.log('✅ Transaction confirmed via Phantom native API!');
+
+            return signature;
+        } catch (phantomError: any) {
+            console.error('❌ Phantom native signAndSendTransaction failed:', phantomError);
+
+            // Provide more specific error messages
+            if (phantomError.message?.includes('User rejected') || phantomError.code === 4001) {
+                throw new Error('User rejected the transaction in Phantom wallet');
+            } else if (phantomError.message?.includes('insufficient funds')) {
+                throw new Error('Insufficient SOL balance for transaction fees and token creation');
+            } else {
+                throw new Error(`Phantom wallet transaction failed: ${phantomError.message || 'Unknown error'}`);
+            }
+        }
+    } else {
+        // FALLBACK: Use wallet adapter sendTransaction for other wallets
+        console.log('📝 Using wallet adapter sendTransaction for non-Phantom wallet');
+        console.log('✅ This should work securely with Solflare, Coinbase, and other wallets!');
+
+        try {
+            // IMPORTANT: Set recent blockhash for the transaction
+            const { blockhash } = await connection.getLatestBlockhash();
+            transaction.recentBlockhash = blockhash;
+
+            console.log('📋 Transaction details for wallet adapter:');
+            console.log('  - Instructions:', transaction.instructions.length);
+            console.log('  - Recent blockhash:', transaction.recentBlockhash);
+
+            const signature = await sendTransaction(transaction, connection);
+            console.log('📨 Wallet adapter transaction sent, signature:', signature);
+
+            // Wait for confirmation
+            console.log('⏳ Waiting for confirmation...');
+            await connection.confirmTransaction(signature);
+            console.log('✅ Transaction confirmed via wallet adapter!');
+
+            return signature;
+        } catch (error: any) {
+            console.error('❌ Wallet adapter sendTransaction failed:', error);
+
+            // Provide more specific error messages
+            if (error.message?.includes('User rejected') || error.code === 4001) {
+                throw new Error('User rejected the transaction in wallet');
+            } else if (error.message?.includes('insufficient funds')) {
+                throw new Error('Insufficient SOL balance for transaction fees and token creation');
+            } else {
+                throw new Error(`Wallet transaction failed: ${error.message || 'Unknown error'}`);
+            }
+        }
+    }
+}
+
 export async function createTokenMint({
     connection,
     payer,
-    signTransaction,
+    sendTransaction,
     formData,
     totalCost,
 }: CreateTokenParams) {
@@ -250,72 +343,19 @@ export async function createTokenMint({
             })
         );
 
-        // Step 6: Execute COMBINED transaction (payment + token creation)
-        console.log('🚀 Step 6: Executing atomic transaction (payment + token creation)...');
-        const { blockhash } = await connection.getLatestBlockhash();
-        console.log('🔗 Latest Blockhash:', blockhash);
-
-        tokenTransaction.recentBlockhash = blockhash;
-        tokenTransaction.feePayer = payer;
-
         // Partially sign with mint keypair
         console.log('✍️ Signing transaction with mint keypair...');
         tokenTransaction.partialSign(mintKeypair);
 
-        // Log wallet detection info for debugging
-        logWalletInfo();
-
         // Step 6: Execute transaction using secure signing method
         console.log('🚀 Step 6: Executing atomic transaction (payment + token creation)...');
         const txStartTime = Date.now();
-        let atomicSignature: string;
 
-        if (shouldUseSecureSigning()) {
-            // SECURE: Use Phantom's native signAndSendTransaction API
-            console.log('🔒 Using Phantom secure signing (signAndSendTransaction)');
-            console.log('✅ This eliminates "malicious app" warnings!');
-
-            const provider = getPhantomProvider();
-            if (!provider) {
-                throw new Error('Phantom provider not available. Please ensure Phantom wallet is installed and connected.');
-            }
-
-            try {
-                const { signature } = await provider.signAndSendTransaction(tokenTransaction);
-                atomicSignature = signature;
-                console.log('📨 Secure transaction sent, signature:', atomicSignature);
-
-                // Check transaction status
-                console.log('⏳ Waiting for confirmation...');
-                await connection.getSignatureStatus(signature);
-            } catch (phantomError: any) {
-                console.error('❌ Phantom signAndSendTransaction failed:', phantomError);
-
-                // Provide more specific error messages
-                if (phantomError.message?.includes('User rejected') || phantomError.code === 4001) {
-                    throw new Error('User rejected the transaction in Phantom wallet');
-                } else if (phantomError.message?.includes('insufficient funds')) {
-                    throw new Error('Insufficient SOL balance for transaction fees and token creation');
-                } else {
-                    throw new Error(`Phantom wallet transaction failed: ${phantomError.message || 'Unknown error'}`);
-                }
-            }
-        } else {
-            // FALLBACK: Manual signing for other wallets
-            console.log('📝 Using fallback signing for non-Phantom wallet');
-            console.log('✍️ Requesting wallet signature for ATOMIC transaction...');
-            console.log('ℹ️ This single signature will handle payment AND token creation safely!');
-
-            const signedTokenTransaction = await signTransaction(tokenTransaction);
-            console.log('✅ Atomic transaction signed by wallet');
-
-            console.log('📡 Sending atomic transaction to blockchain...');
-            atomicSignature = await connection.sendRawTransaction(signedTokenTransaction.serialize());
-            console.log('📨 Atomic transaction sent, signature:', atomicSignature);
-
-            console.log('⏳ Waiting for confirmation...');
-            await connection.confirmTransaction(atomicSignature);
-        }
+        const atomicSignature = await executeSecureTransaction(
+            tokenTransaction,
+            connection,
+            sendTransaction
+        );
 
         const txTime = Date.now() - txStartTime;
         console.log(`✅ Atomic transaction confirmed successfully in ${txTime}ms`);
@@ -391,7 +431,7 @@ export async function createTokenMint({
 async function processPayment(
     connection: Connection,
     payer: PublicKey,
-    signTransaction: (transaction: Transaction) => Promise<Transaction>,
+    sendTransaction: (transaction: Transaction, connection: Connection) => Promise<string>,
     totalCost: number
 ) {
     const transaction = new Transaction().add(
@@ -402,53 +442,7 @@ async function processPayment(
         })
     );
 
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = payer;
-
-    // Log wallet detection info for debugging
-    logWalletInfo();
-
-    let signature: string;
-
-    if (shouldUseSecureSigning()) {
-        // SECURE: Use Phantom's native signAndSendTransaction API
-        console.log('🔒 Using Phantom secure signing for payment (signAndSendTransaction)');
-        console.log('✅ This eliminates "malicious app" warnings!');
-
-        const provider = getPhantomProvider();
-        if (!provider) {
-            throw new Error('Phantom provider not available. Please ensure Phantom wallet is installed and connected.');
-        }
-
-        try {
-            const result = await provider.signAndSendTransaction(transaction);
-            signature = result.signature;
-            console.log('📨 Secure payment transaction sent, signature:', signature);
-
-            // Check transaction status
-            await connection.getSignatureStatus(signature);
-        } catch (phantomError: any) {
-            console.error('❌ Phantom payment signAndSendTransaction failed:', phantomError);
-
-            // Provide more specific error messages
-            if (phantomError.message?.includes('User rejected') || phantomError.code === 4001) {
-                throw new Error('User rejected the payment transaction in Phantom wallet');
-            } else if (phantomError.message?.includes('insufficient funds')) {
-                throw new Error('Insufficient SOL balance for payment transaction');
-            } else {
-                throw new Error(`Phantom wallet payment failed: ${phantomError.message || 'Unknown error'}`);
-            }
-        }
-    } else {
-        // FALLBACK: Manual signing for other wallets
-        console.log('📝 Using fallback signing for payment (non-Phantom wallet)');
-
-        const signedTransaction = await signTransaction(transaction);
-        signature = await connection.sendRawTransaction(signedTransaction.serialize());
-        await connection.confirmTransaction(signature);
-    }
-
+    const signature = await executeSecureTransaction(transaction, connection, sendTransaction);
     return signature;
 }
 
@@ -478,8 +472,6 @@ async function uploadMetadataToIPFS(formData: TokenFormData): Promise<string> {
         return await uploadToPlaceholderIPFS(formData);
     }
 }
-
-
 
 async function uploadToPinata(formData: TokenFormData): Promise<string> {
     try {
@@ -554,8 +546,6 @@ async function uploadToPinata(formData: TokenFormData): Promise<string> {
         throw error;
     }
 }
-
-
 
 async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string> {
     // Prepare creators array based on custom creator option

@@ -46,7 +46,7 @@ interface TokenCreationFormProps {
 }
 
 export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreationFormProps) {
-    const { publicKey, signTransaction } = useWallet();
+    const { publicKey, sendTransaction } = useWallet();
     const { connection } = useConnection();
     const [isLoading, setIsLoading] = useState(false);
     const [showCreatorInfo, setShowCreatorInfo] = useState(false);
@@ -397,7 +397,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!publicKey || !signTransaction) {
+        if (!publicKey || !sendTransaction) {
             alert('Please connect your wallet');
             return;
         }
@@ -428,11 +428,20 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         console.log('🌐 Connection endpoint:', connection.rpcEndpoint);
         console.log('👛 Wallet address:', publicKey.toString());
 
+        // Debug wallet detection before token creation
+        console.log('🔍 Pre-transaction wallet detection:');
+        try {
+            const { logWalletInfo } = await import('@/lib/walletUtils');
+            logWalletInfo();
+        } catch (importError) {
+            console.error('❌ Failed to import wallet utils:', importError);
+        }
+
         try {
             const result = await createTokenMint({
                 connection,
                 payer: publicKey,
-                signTransaction,
+                sendTransaction,
                 formData: {
                     ...formData,
                     customCreator: showCreatorInfo, // Use the toggle state
@@ -489,7 +498,7 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 errorStep = 'atomic_transaction';
             } else if (errorMessage.includes('Phantom provider not available') ||
                 errorMessage.includes('wallet not connected') ||
-                errorMessage.includes('signAndSendTransaction')) {
+                errorMessage.includes('sendTransaction')) {
                 errorType = 'wallet_error';
                 errorStep = 'wallet_connection';
             } else if (errorMessage.includes('network') || errorMessage.includes('Connection')) {
