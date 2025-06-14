@@ -39,20 +39,20 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
 
     // Use environment variable or fallback to reliable RPC endpoints
     const endpoint = useMemo(() => {
-        // Check for custom RPC endpoint in environment variables
+        // Priority 1: Check for custom RPC endpoint (your QuickNode endpoint)
         const customEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT;
         if (customEndpoint) {
             return customEndpoint;
         }
 
-        // Production: Use reliable third-party RPC based on network
+        // Priority 2: Production - Use reliable third-party RPC based on network
         if (process.env.NODE_ENV === 'production') {
             return network === WalletAdapterNetwork.Mainnet
                 ? 'https://api.mainnet-beta.solana.com'
                 : 'https://api.devnet.solana.com';
         }
 
-        // Development: Use default Solana RPC
+        // Priority 3: Development - Use default Solana RPC
         return clusterApiUrl(network);
     }, [network]);
 
