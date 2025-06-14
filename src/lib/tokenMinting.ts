@@ -20,6 +20,7 @@ import {
     createCreateMetadataAccountV3Instruction,
     PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID
 } from '@metaplex-foundation/mpl-token-metadata';
+import { shouldUseSecureSigning, getPhantomProvider, logWalletInfo } from './walletUtils';
 
 // IPFS Gateway configuration
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
@@ -261,20 +262,48 @@ export async function createTokenMint({
         console.log('✍️ Signing transaction with mint keypair...');
         tokenTransaction.partialSign(mintKeypair);
 
-        // Sign with wallet (SINGLE SIGNATURE for everything)
-        console.log('✍️ Requesting wallet signature for ATOMIC transaction...');
-        console.log('ℹ️ This single signature will handle payment AND token creation safely!');
-        const signedTokenTransaction = await signTransaction(tokenTransaction);
-        console.log('✅ Atomic transaction signed by wallet');
+        // Log wallet detection info for debugging
+        logWalletInfo();
 
-        // Send transaction
-        console.log('📡 Sending atomic transaction to blockchain...');
+        // Step 6: Execute transaction using secure signing method
+        console.log('🚀 Step 6: Executing atomic transaction (payment + token creation)...');
         const txStartTime = Date.now();
-        const atomicSignature = await connection.sendRawTransaction(signedTokenTransaction.serialize());
-        console.log('📨 Atomic transaction sent, signature:', atomicSignature);
+        let atomicSignature: string;
 
-        console.log('⏳ Waiting for confirmation...');
-        await connection.confirmTransaction(atomicSignature);
+        if (shouldUseSecureSigning()) {
+            // SECURE: Use Phantom's native signAndSendTransaction API
+            console.log('🔒 Using Phantom secure signing (signAndSendTransaction)');
+            console.log('✅ This eliminates "malicious app" warnings!');
+
+            const provider = getPhantomProvider();
+            if (!provider) {
+                throw new Error('Phantom provider not available');
+            }
+
+            const { signature } = await provider.signAndSendTransaction(tokenTransaction);
+            atomicSignature = signature;
+            console.log('📨 Secure transaction sent, signature:', atomicSignature);
+
+            // Check transaction status
+            console.log('⏳ Waiting for confirmation...');
+            await connection.getSignatureStatus(signature);
+        } else {
+            // FALLBACK: Manual signing for other wallets
+            console.log('📝 Using fallback signing for non-Phantom wallet');
+            console.log('✍️ Requesting wallet signature for ATOMIC transaction...');
+            console.log('ℹ️ This single signature will handle payment AND token creation safely!');
+
+            const signedTokenTransaction = await signTransaction(tokenTransaction);
+            console.log('✅ Atomic transaction signed by wallet');
+
+            console.log('📡 Sending atomic transaction to blockchain...');
+            atomicSignature = await connection.sendRawTransaction(signedTokenTransaction.serialize());
+            console.log('📨 Atomic transaction sent, signature:', atomicSignature);
+
+            console.log('⏳ Waiting for confirmation...');
+            await connection.confirmTransaction(atomicSignature);
+        }
+
         const txTime = Date.now() - txStartTime;
         console.log(`✅ Atomic transaction confirmed successfully in ${txTime}ms`);
         console.log('🎉 Payment and token creation completed safely together!');
@@ -364,9 +393,35 @@ async function processPayment(
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = payer;
 
-    const signedTransaction = await signTransaction(transaction);
-    const signature = await connection.sendRawTransaction(signedTransaction.serialize());
-    await connection.confirmTransaction(signature);
+    // Log wallet detection info for debugging
+    logWalletInfo();
+
+    let signature: string;
+
+    if (shouldUseSecureSigning()) {
+        // SECURE: Use Phantom's native signAndSendTransaction API
+        console.log('🔒 Using Phantom secure signing for payment (signAndSendTransaction)');
+        console.log('✅ This eliminates "malicious app" warnings!');
+
+        const provider = getPhantomProvider();
+        if (!provider) {
+            throw new Error('Phantom provider not available');
+        }
+
+        const result = await provider.signAndSendTransaction(transaction);
+        signature = result.signature;
+        console.log('📨 Secure payment transaction sent, signature:', signature);
+
+        // Check transaction status
+        await connection.getSignatureStatus(signature);
+    } else {
+        // FALLBACK: Manual signing for other wallets
+        console.log('📝 Using fallback signing for payment (non-Phantom wallet)');
+
+        const signedTransaction = await signTransaction(transaction);
+        signature = await connection.sendRawTransaction(signedTransaction.serialize());
+        await connection.confirmTransaction(signature);
+    }
 
     return signature;
 }
