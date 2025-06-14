@@ -101,27 +101,74 @@ async function executeSecureTransaction(
                 transaction.recentBlockhash = blockhash;
             }
 
-            // Use Phantom's RECOMMENDED signAndSendTransaction method
-            const { signature } = await provider.signAndSendTransaction(transaction);
-            console.log('📨 Phantom native transaction sent, signature:', signature);
+            // Additional debugging for Phantom
+            console.log('🔍 Phantom Provider Debug:');
+            console.log('  - Provider type:', typeof provider);
+            console.log('  - Provider.isPhantom:', provider.isPhantom);
+            console.log('  - Provider.publicKey:', provider.publicKey?.toString());
+            console.log('  - Provider.isConnected:', provider.isConnected);
+            console.log('  - signAndSendTransaction type:', typeof provider.signAndSendTransaction);
 
-            // Wait for confirmation
-            console.log('⏳ Waiting for confirmation...');
-            await connection.confirmTransaction(signature);
-            console.log('✅ Transaction confirmed via Phantom native API!');
-
-            return signature;
-        } catch (phantomError: any) {
-            console.error('❌ Phantom native signAndSendTransaction failed:', phantomError);
-
-            // Provide more specific error messages
-            if (phantomError.message?.includes('User rejected') || phantomError.code === 4001) {
-                throw new Error('User rejected the transaction in Phantom wallet');
-            } else if (phantomError.message?.includes('insufficient funds')) {
-                throw new Error('Insufficient SOL balance for transaction fees and token creation');
-            } else {
-                throw new Error(`Phantom wallet transaction failed: ${phantomError.message || 'Unknown error'}`);
+            // Verify transaction serialization works
+            try {
+                const serialized = transaction.serialize({ requireAllSignatures: false });
+                console.log('✅ Transaction serialization test passed, size:', serialized.length, 'bytes');
+            } catch (serError) {
+                console.error('❌ Transaction serialization failed:', serError);
+                throw new Error(`Transaction preparation failed: ${serError}`);
             }
+
+            // Use Phantom's RECOMMENDED signAndSendTransaction method
+            console.log('🚀 Calling provider.signAndSendTransaction...');
+
+            try {
+                const result = await provider.signAndSendTransaction(transaction);
+                console.log('📨 Phantom native transaction result:', result);
+
+                const signature = result.signature;
+                console.log('📨 Phantom native transaction sent, signature:', signature);
+
+                // Wait for confirmation
+                console.log('⏳ Waiting for confirmation...');
+                await connection.confirmTransaction(signature);
+                console.log('✅ Transaction confirmed via Phantom native API!');
+
+                return signature;
+            } catch (phantomNativeError: any) {
+                console.error('❌ Phantom native signAndSendTransaction failed:', phantomNativeError);
+                console.error('🔍 Error details:', {
+                    message: phantomNativeError.message,
+                    code: phantomNativeError.code,
+                    name: phantomNativeError.name,
+                    stack: phantomNativeError.stack
+                });
+
+                // If it's a user rejection, don't retry
+                if (phantomNativeError.message?.includes('User rejected') || phantomNativeError.code === 4001) {
+                    throw new Error('User rejected the transaction in Phantom wallet');
+                }
+
+                // For other errors, try falling back to wallet adapter
+                console.log('🔄 Attempting fallback to wallet adapter sendTransaction...');
+                try {
+                    const fallbackSignature = await sendTransaction(transaction, connection);
+                    console.log('📨 Fallback transaction sent, signature:', fallbackSignature);
+
+                    // Wait for confirmation
+                    console.log('⏳ Waiting for fallback confirmation...');
+                    await connection.confirmTransaction(fallbackSignature);
+                    console.log('✅ Fallback transaction confirmed!');
+
+                    return fallbackSignature;
+                } catch (fallbackError: any) {
+                    console.error('❌ Fallback also failed:', fallbackError);
+                    throw new Error(`Both Phantom native and fallback failed. Native: ${phantomNativeError.message}, Fallback: ${fallbackError.message}`);
+                }
+            }
+        } catch (outerError: any) {
+            // This should not be reached due to inner try-catch, but just in case
+            console.error('❌ Unexpected outer error:', outerError);
+            throw outerError;
         }
     } else {
         // FALLBACK: Use wallet adapter sendTransaction for other wallets

@@ -29,8 +29,20 @@ declare global {
  */
 export function getPhantomProvider(): PhantomProvider | null {
     if (typeof window !== 'undefined' && window.phantom?.solana) {
-        return window.phantom.solana;
+        const provider = window.phantom.solana;
+
+        // Debug logging to ensure we have the right provider
+        console.log('🔍 getPhantomProvider Debug:');
+        console.log('  - window.phantom exists:', !!window.phantom);
+        console.log('  - window.phantom.solana exists:', !!window.phantom.solana);
+        console.log('  - provider.isPhantom:', provider.isPhantom);
+        console.log('  - provider.signAndSendTransaction exists:', typeof provider.signAndSendTransaction);
+        console.log('  - provider.publicKey:', provider.publicKey?.toString());
+
+        return provider;
     }
+
+    console.warn('⚠️ Phantom provider not found');
     return null;
 }
 

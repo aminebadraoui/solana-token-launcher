@@ -431,8 +431,17 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
         // Debug wallet detection before token creation
         console.log('🔍 Pre-transaction wallet detection:');
         try {
-            const { logWalletInfo } = await import('@/lib/walletUtils');
+            const { logWalletInfo, getPhantomProvider } = await import('@/lib/walletUtils');
             logWalletInfo();
+
+            // Check for publicKey mismatch
+            const phantomProvider = getPhantomProvider();
+            if (phantomProvider) {
+                console.log('🔍 PublicKey Comparison:');
+                console.log('  - Wallet Adapter publicKey:', publicKey.toString());
+                console.log('  - Phantom Provider publicKey:', phantomProvider.publicKey?.toString());
+                console.log('  - Keys match:', publicKey.toString() === phantomProvider.publicKey?.toString());
+            }
         } catch (importError) {
             console.error('❌ Failed to import wallet utils:', importError);
         }
