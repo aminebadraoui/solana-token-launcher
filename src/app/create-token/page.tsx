@@ -6,7 +6,7 @@ import { NoSSRWrapper } from '@/components/WalletContextProvider';
 import { TokenCreationForm } from '@/components/TokenCreationForm';
 import { Header } from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 
 interface PumpFunToken {
@@ -23,7 +23,7 @@ interface PumpFunToken {
     creationTime: string;
 }
 
-export default function CreateToken() {
+function CreateTokenContent() {
     const { connected } = useWallet();
     const searchParams = useSearchParams();
     const [isCloneMode, setIsCloneMode] = useState(false);
@@ -71,8 +71,6 @@ export default function CreateToken() {
             setLoadingCloneData(false);
         }
     };
-
-
 
     const renderCloneHeader = () => {
         if (!isCloneMode || !cloneTokenData) return null;
@@ -198,10 +196,24 @@ export default function CreateToken() {
                 ) : (
                     <TokenCreationForm
                         cloneData={isPremiumPaid ? cloneTokenData : null}
-                        isCloneMode={isCloneMode}
                     />
                 )}
             </div>
         </div>
+    );
+}
+
+export default function CreateToken() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen dark-gradient-bg flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-secondary">Loading...</p>
+                </div>
+            </div>
+        }>
+            <CreateTokenContent />
+        </Suspense>
     );
 } 
