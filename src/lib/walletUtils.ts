@@ -24,78 +24,116 @@ declare global {
     }
 }
 
+// Cache for wallet detection results to avoid repeated calls
+let walletDetectionCache: {
+    provider: PhantomProvider | null;
+    walletType: string;
+    isPhantom: boolean;
+    supportsSecure: boolean;
+    timestamp: number;
+} | null = null;
+
+const CACHE_DURATION = 1000; // 1 second cache
+
+/**
+ * Get cached wallet detection results or compute them fresh
+ */
+function getWalletDetection() {
+    const now = Date.now();
+
+    // Return cached results if still valid
+    if (walletDetectionCache && (now - walletDetectionCache.timestamp) < CACHE_DURATION) {
+        return walletDetectionCache;
+    }
+
+    // Compute fresh results
+    const provider = (typeof window !== 'undefined' && window.phantom?.solana)
+        ? window.phantom.solana
+        : null;
+
+    let walletType = 'unknown';
+    if (typeof window !== 'undefined') {
+        if (window.phantom?.solana?.isPhantom) {
+            walletType = 'phantom';
+        } else if (window.solflare) {
+            walletType = 'solflare';
+        } else if (window.coinbaseWalletExtension) {
+            walletType = 'coinbase';
+        }
+    } else {
+        walletType = 'server';
+    }
+
+    const isPhantom = provider?.isPhantom === true;
+    const supportsSecure = !!(provider && typeof provider.signAndSendTransaction === 'function');
+
+    // Cache the results
+    walletDetectionCache = {
+        provider,
+        walletType,
+        isPhantom,
+        supportsSecure,
+        timestamp: now
+    };
+
+    return walletDetectionCache;
+}
+
 /**
  * Get the Phantom wallet provider if available
  */
 export function getPhantomProvider(): PhantomProvider | null {
-    if (typeof window !== 'undefined' && window.phantom?.solana) {
-        const provider = window.phantom.solana;
-        return provider;
-    }
-
-    return null;
+    return getWalletDetection().provider;
 }
 
 /**
  * Check if the current wallet is Phantom
  */
 export function isPhantomWallet(): boolean {
-    const provider = getPhantomProvider();
-    return provider?.isPhantom === true;
+    return getWalletDetection().isPhantom;
 }
 
 /**
  * Check if the current wallet supports secure signing (signAndSendTransaction)
  */
 export function supportsSecureSigning(): boolean {
-    const provider = getPhantomProvider();
-    return !!(provider && typeof provider.signAndSendTransaction === 'function');
+    return getWalletDetection().supportsSecure;
 }
 
 /**
  * Get the current wallet type for logging/debugging
  */
 export function getWalletType(): string {
-    if (typeof window === 'undefined') {
-        return 'server';
-    }
-
-    if (window.phantom?.solana?.isPhantom) {
-        return 'phantom';
-    }
-
-    if (window.solflare) {
-        return 'solflare';
-    }
-
-    if (window.coinbaseWalletExtension) {
-        return 'coinbase';
-    }
-
-    return 'unknown';
+    return getWalletDetection().walletType;
 }
 
 /**
  * Check if we should use secure signing for the current wallet
  */
 export function shouldUseSecureSigning(): boolean {
-    return isPhantomWallet() && supportsSecureSigning();
+    const detection = getWalletDetection();
+    return detection.isPhantom && detection.supportsSecure;
 }
 
 /**
  * Log wallet detection information for debugging
  */
 export function logWalletInfo(): void {
-    const walletType = getWalletType();
-    const isPhantom = isPhantomWallet();
-    const supportsSecure = supportsSecureSigning();
+    const detection = getWalletDetection();
 
     console.log('🔍 Wallet Detection Info:', {
-        walletType,
-        isPhantom,
-        supportsSecureSigning: supportsSecure,
-        shouldUseSecureSigning: shouldUseSecureSigning(),
-        phantomAvailable: !!window.phantom?.solana,
-        phantomConnected: window.phantom?.solana?.isConnected
+        walletType: detection.walletType,
+        isPhantom: detection.isPhantom,
+        supportsSecureSigning: detection.supportsSecure,
+        shouldUseSecureSigning: detection.isPhantom && detection.supportsSecure,
+        phantomAvailable: !!detection.provider,
+        phantomConnected: detection.provider?.isConnected
     });
+}
+
+/**
+ * Clear the wallet detection cache (useful for testing or wallet changes)
+ */
+export function clearWalletCache(): void {
+    walletDetectionCache = null;
 } 
