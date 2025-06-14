@@ -277,16 +277,29 @@ export async function createTokenMint({
 
             const provider = getPhantomProvider();
             if (!provider) {
-                throw new Error('Phantom provider not available');
+                throw new Error('Phantom provider not available. Please ensure Phantom wallet is installed and connected.');
             }
 
-            const { signature } = await provider.signAndSendTransaction(tokenTransaction);
-            atomicSignature = signature;
-            console.log('📨 Secure transaction sent, signature:', atomicSignature);
+            try {
+                const { signature } = await provider.signAndSendTransaction(tokenTransaction);
+                atomicSignature = signature;
+                console.log('📨 Secure transaction sent, signature:', atomicSignature);
 
-            // Check transaction status
-            console.log('⏳ Waiting for confirmation...');
-            await connection.getSignatureStatus(signature);
+                // Check transaction status
+                console.log('⏳ Waiting for confirmation...');
+                await connection.getSignatureStatus(signature);
+            } catch (phantomError: any) {
+                console.error('❌ Phantom signAndSendTransaction failed:', phantomError);
+
+                // Provide more specific error messages
+                if (phantomError.message?.includes('User rejected') || phantomError.code === 4001) {
+                    throw new Error('User rejected the transaction in Phantom wallet');
+                } else if (phantomError.message?.includes('insufficient funds')) {
+                    throw new Error('Insufficient SOL balance for transaction fees and token creation');
+                } else {
+                    throw new Error(`Phantom wallet transaction failed: ${phantomError.message || 'Unknown error'}`);
+                }
+            }
         } else {
             // FALLBACK: Manual signing for other wallets
             console.log('📝 Using fallback signing for non-Phantom wallet');
@@ -405,15 +418,28 @@ async function processPayment(
 
         const provider = getPhantomProvider();
         if (!provider) {
-            throw new Error('Phantom provider not available');
+            throw new Error('Phantom provider not available. Please ensure Phantom wallet is installed and connected.');
         }
 
-        const result = await provider.signAndSendTransaction(transaction);
-        signature = result.signature;
-        console.log('📨 Secure payment transaction sent, signature:', signature);
+        try {
+            const result = await provider.signAndSendTransaction(transaction);
+            signature = result.signature;
+            console.log('📨 Secure payment transaction sent, signature:', signature);
 
-        // Check transaction status
-        await connection.getSignatureStatus(signature);
+            // Check transaction status
+            await connection.getSignatureStatus(signature);
+        } catch (phantomError: any) {
+            console.error('❌ Phantom payment signAndSendTransaction failed:', phantomError);
+
+            // Provide more specific error messages
+            if (phantomError.message?.includes('User rejected') || phantomError.code === 4001) {
+                throw new Error('User rejected the payment transaction in Phantom wallet');
+            } else if (phantomError.message?.includes('insufficient funds')) {
+                throw new Error('Insufficient SOL balance for payment transaction');
+            } else {
+                throw new Error(`Phantom wallet payment failed: ${phantomError.message || 'Unknown error'}`);
+            }
+        }
     } else {
         // FALLBACK: Manual signing for other wallets
         console.log('📝 Using fallback signing for payment (non-Phantom wallet)');

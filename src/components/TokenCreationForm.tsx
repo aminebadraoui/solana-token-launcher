@@ -483,9 +483,15 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
             if (errorMessage.includes('insufficient funds') || errorMessage.includes('not enough SOL')) {
                 errorType = 'insufficient_funds';
                 errorStep = 'atomic_transaction';
-            } else if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected')) {
+            } else if (errorMessage.includes('User rejected') || errorMessage.includes('user rejected') ||
+                errorMessage.includes('User denied') || errorMessage.includes('cancelled')) {
                 errorType = 'user_rejected';
                 errorStep = 'atomic_transaction';
+            } else if (errorMessage.includes('Phantom provider not available') ||
+                errorMessage.includes('wallet not connected') ||
+                errorMessage.includes('signAndSendTransaction')) {
+                errorType = 'wallet_error';
+                errorStep = 'wallet_connection';
             } else if (errorMessage.includes('network') || errorMessage.includes('Connection')) {
                 errorType = 'network_error';
                 errorStep = 'connection';
@@ -501,6 +507,9 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
             } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
                 errorType = 'validation_error';
                 errorStep = 'validation';
+            } else if (errorMessage.includes('signature') || errorMessage.includes('signing')) {
+                errorType = 'signing_error';
+                errorStep = 'transaction_signing';
             }
 
             // Redirect to error page with error details
