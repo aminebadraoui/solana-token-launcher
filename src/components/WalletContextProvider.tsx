@@ -20,12 +20,9 @@ export function NoSSRWrapper({ children }: { children: React.ReactNode }) {
         setHasMounted(true);
     }, []);
 
+    // Don't render anything on server-side to prevent hydration mismatch
     if (!hasMounted) {
-        return (
-            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg font-medium opacity-50 cursor-not-allowed">
-                Loading...
-            </div>
-        );
+        return null;
     }
 
     return <>{children}</>;
@@ -76,31 +73,33 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
     }, [network, endpoint]);
 
     return (
-        <ConnectionProvider
-            endpoint={endpoint}
-            config={{
-                commitment: 'confirmed',
-                confirmTransactionInitialTimeout: 30000,
-                wsEndpoint: undefined, // Disable WebSocket to avoid connection issues
-            }}
-        >
-            <WalletProvider
-                wallets={wallets}
-                autoConnect={true} // Re-enable autoConnect but with better error handling
-                onError={(error) => {
-                    console.error('❌ Wallet connection error:', {
-                        error,
-                        message: error.message,
-                        name: error.name,
-                        timestamp: new Date().toISOString()
-                    });
-                    // Don't throw the error to prevent app crashes
+        <div suppressHydrationWarning>
+            <ConnectionProvider
+                endpoint={endpoint}
+                config={{
+                    commitment: 'confirmed',
+                    confirmTransactionInitialTimeout: 30000,
+                    wsEndpoint: undefined, // Disable WebSocket to avoid connection issues
                 }}
             >
-                <WalletModalProvider>
-                    {children}
-                </WalletModalProvider>
-            </WalletProvider>
-        </ConnectionProvider>
+                <WalletProvider
+                    wallets={wallets}
+                    autoConnect={false} // Disable autoConnect to prevent hydration mismatch
+                    onError={(error) => {
+                        console.error('❌ Wallet connection error:', {
+                            error,
+                            message: error.message,
+                            name: error.name,
+                            timestamp: new Date().toISOString()
+                        });
+                        // Don't throw the error to prevent app crashes
+                    }}
+                >
+                    <WalletModalProvider>
+                        {children}
+                    </WalletModalProvider>
+                </WalletProvider>
+            </ConnectionProvider>
+        </div>
     );
 } 
