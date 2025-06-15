@@ -42,18 +42,17 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
         // Priority 1: Check for custom RPC endpoint (your QuickNode endpoint)
         const customEndpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT;
         if (customEndpoint) {
+            console.log('🔗 Using custom RPC endpoint:', customEndpoint);
             return customEndpoint;
         }
 
-        // Priority 2: Production - Use reliable third-party RPC based on network
-        if (process.env.NODE_ENV === 'production') {
-            return network === WalletAdapterNetwork.Mainnet
-                ? 'https://api.mainnet-beta.solana.com'
-                : 'https://api.devnet.solana.com';
-        }
+        // Priority 2: Use reliable public RPC endpoints
+        const publicEndpoint = network === WalletAdapterNetwork.Mainnet
+            ? 'https://api.mainnet-beta.solana.com'
+            : 'https://api.devnet.solana.com';
 
-        // Priority 3: Development - Use default Solana RPC
-        return clusterApiUrl(network);
+        console.log('🔗 Using public RPC endpoint:', publicEndpoint, 'for network:', network);
+        return publicEndpoint;
     }, [network]);
 
     const wallets = useMemo(
@@ -65,20 +64,53 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
         [network]
     );
 
+    // Add connection debugging
+    useEffect(() => {
+        console.log('🔧 Wallet Context Configuration:', {
+            network,
+            endpoint,
+            nodeEnv: process.env.NODE_ENV,
+            solanaNetwork: process.env.NEXT_PUBLIC_SOLANA_NETWORK,
+            customRPC: process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT ? 'Set' : 'Not set'
+        });
+    }, [network, endpoint]);
+
     return (
         <ConnectionProvider
             endpoint={endpoint}
             config={{
                 commitment: 'confirmed',
-                confirmTransactionInitialTimeout: 60000,
-                wsEndpoint: undefined, // Disable WebSocket in production to avoid connection issues
+                confirmTransactionInitialTimeout: 30000, // Reduced from 60s to 30s
+                wsEndpoint: undefined, // Disable WebSocket to avoid connection issues
+                httpHeaders: {
+                    'Content-Type': 'application/json',
+                },
+                fetch: (url, options) => {
+                    console.log('🌐 RPC Request to:', url);
+                    return fetch(url, {
+                        ...options,
+                        headers: {
+                            ...options?.headers,
+                            'User-Agent': 'Moonrush-Token-Creator/1.0',
+                        },
+                    }).catch((error) => {
+                        console.error('❌ RPC Request failed:', error);
+                        throw error;
+                    });
+                },
             }}
         >
             <WalletProvider
                 wallets={wallets}
-                autoConnect={true}
+                autoConnect={false} // Changed to false to prevent auto-connection issues
                 onError={(error) => {
-                    console.error('Wallet connection error:', error);
+                    console.error('❌ Wallet connection error:', {
+                        error,
+                        message: error.message,
+                        name: error.name,
+                        stack: error.stack,
+                        timestamp: new Date().toISOString()
+                    });
                     // Don't throw the error to prevent app crashes
                 }}
             >
