@@ -46,13 +46,13 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             return customEndpoint;
         }
 
-        // Priority 2: Use reliable public RPC endpoints
-        const publicEndpoint = network === WalletAdapterNetwork.Mainnet
-            ? 'https://api.mainnet-beta.solana.com'
-            : 'https://api.devnet.solana.com';
+        // Priority 2: Use more reliable RPC endpoints (not the overloaded public ones)
+        const reliableEndpoint = network === WalletAdapterNetwork.Mainnet
+            ? 'https://solana-mainnet.g.alchemy.com/v2/demo' // Alchemy demo endpoint
+            : 'https://solana-devnet.g.alchemy.com/v2/demo';   // Alchemy demo devnet
 
-        console.log('🔗 Using public RPC endpoint:', publicEndpoint, 'for network:', network);
-        return publicEndpoint;
+        console.log('🔗 Using reliable RPC endpoint:', reliableEndpoint, 'for network:', network);
+        return reliableEndpoint;
     }, [network]);
 
     const wallets = useMemo(
@@ -80,21 +80,44 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             endpoint={endpoint}
             config={{
                 commitment: 'confirmed',
-                confirmTransactionInitialTimeout: 30000, // Reduced from 60s to 30s
+                confirmTransactionInitialTimeout: 15000, // Reduced to 15s for faster failure detection
                 wsEndpoint: undefined, // Disable WebSocket to avoid connection issues
                 httpHeaders: {
                     'Content-Type': 'application/json',
                 },
                 fetch: (url, options) => {
                     console.log('🌐 RPC Request to:', url);
+
+                    // Add timeout to prevent hanging requests
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => {
+                        console.warn('⏰ RPC request timeout, aborting...');
+                        controller.abort();
+                    }, 10000); // 10 second timeout
+
                     return fetch(url, {
                         ...options,
+                        signal: controller.signal,
                         headers: {
                             ...options?.headers,
                             'User-Agent': 'Moonrush-Token-Creator/1.0',
                         },
+                    }).then((response) => {
+                        clearTimeout(timeoutId);
+                        if (!response.ok) {
+                            console.error('❌ RPC Response not OK:', response.status, response.statusText);
+                        } else {
+                            console.log('✅ RPC Request successful');
+                        }
+                        return response;
                     }).catch((error) => {
-                        console.error('❌ RPC Request failed:', error);
+                        clearTimeout(timeoutId);
+                        console.error('❌ RPC Request failed:', {
+                            error: error.message,
+                            name: error.name,
+                            url,
+                            timestamp: new Date().toISOString()
+                        });
                         throw error;
                     });
                 },
