@@ -22,9 +22,9 @@ export function NoSSRWrapper({ children }: { children: React.ReactNode }) {
 
     if (!hasMounted) {
         return (
-            <button className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg font-medium">
-                Connect Wallet
-            </button>
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg font-medium opacity-50 cursor-not-allowed">
+                Loading...
+            </div>
         );
     }
 
@@ -46,13 +46,13 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             return customEndpoint;
         }
 
-        // Priority 2: Use more reliable RPC endpoints (not the overloaded public ones)
-        const reliableEndpoint = network === WalletAdapterNetwork.Mainnet
-            ? 'https://solana-mainnet.g.alchemy.com/v2/demo' // Alchemy demo endpoint
-            : 'https://solana-devnet.g.alchemy.com/v2/demo';   // Alchemy demo devnet
+        // Priority 2: Use original Solana public RPC endpoints (they work fine)
+        const publicEndpoint = network === WalletAdapterNetwork.Mainnet
+            ? 'https://api.mainnet-beta.solana.com'
+            : 'https://api.devnet.solana.com';
 
-        console.log('🔗 Using reliable RPC endpoint:', reliableEndpoint, 'for network:', network);
-        return reliableEndpoint;
+        console.log('🔗 Using public RPC endpoint:', publicEndpoint, 'for network:', network);
+        return publicEndpoint;
     }, [network]);
 
     const wallets = useMemo(
@@ -80,58 +80,18 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             endpoint={endpoint}
             config={{
                 commitment: 'confirmed',
-                confirmTransactionInitialTimeout: 15000, // Reduced to 15s for faster failure detection
+                confirmTransactionInitialTimeout: 30000,
                 wsEndpoint: undefined, // Disable WebSocket to avoid connection issues
-                httpHeaders: {
-                    'Content-Type': 'application/json',
-                },
-                fetch: (url, options) => {
-                    console.log('🌐 RPC Request to:', url);
-
-                    // Add timeout to prevent hanging requests
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => {
-                        console.warn('⏰ RPC request timeout, aborting...');
-                        controller.abort();
-                    }, 10000); // 10 second timeout
-
-                    return fetch(url, {
-                        ...options,
-                        signal: controller.signal,
-                        headers: {
-                            ...options?.headers,
-                            'User-Agent': 'Moonrush-Token-Creator/1.0',
-                        },
-                    }).then((response) => {
-                        clearTimeout(timeoutId);
-                        if (!response.ok) {
-                            console.error('❌ RPC Response not OK:', response.status, response.statusText);
-                        } else {
-                            console.log('✅ RPC Request successful');
-                        }
-                        return response;
-                    }).catch((error) => {
-                        clearTimeout(timeoutId);
-                        console.error('❌ RPC Request failed:', {
-                            error: error.message,
-                            name: error.name,
-                            url,
-                            timestamp: new Date().toISOString()
-                        });
-                        throw error;
-                    });
-                },
             }}
         >
             <WalletProvider
                 wallets={wallets}
-                autoConnect={false} // Changed to false to prevent auto-connection issues
+                autoConnect={true} // Re-enable autoConnect but with better error handling
                 onError={(error) => {
                     console.error('❌ Wallet connection error:', {
                         error,
                         message: error.message,
                         name: error.name,
-                        stack: error.stack,
                         timestamp: new Date().toISOString()
                     });
                     // Don't throw the error to prevent app crashes
