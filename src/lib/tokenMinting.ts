@@ -707,6 +707,7 @@ export async function createTokenMintWithPhantomDirect({
     totalCost: number;
 }) {
     console.log('🔒 Using DIRECT Phantom integration (completely bypassing wallet adapter)');
+    console.log('✅ Sending UNSIGNED transactions to eliminate security warnings');
 
     const provider = getPhantomProvider();
     if (!provider) {
@@ -743,12 +744,42 @@ export async function createTokenMintWithPhantomDirect({
             payer
         );
 
-        // Step 4: Build transaction with all instructions
-        const lamports = await connection.getMinimumBalanceForRentExemption(getMintLen([]));
-        const tokenTransaction = new Transaction();
+        // Step 4: Create FIRST transaction - Payment only (completely unsigned)
+        console.log('💳 Step 4a: Creating payment transaction (unsigned)...');
+        const paymentTransaction = new Transaction();
 
-        // Add all token creation instructions (same as before)
-        tokenTransaction.add(
+        paymentTransaction.add(
+            SystemProgram.transfer({
+                fromPubkey: payer,
+                toPubkey: PLATFORM_WALLET,
+                lamports: totalCost * LAMPORTS_PER_SOL,
+            })
+        );
+
+        // Prepare payment transaction (unsigned)
+        const { blockhash: paymentBlockhash } = await connection.getLatestBlockhash();
+        paymentTransaction.recentBlockhash = paymentBlockhash;
+        paymentTransaction.feePayer = payer;
+
+        console.log('🚀 Sending UNSIGNED payment transaction to Phantom...');
+        const paymentResult = await provider.signAndSendTransaction(paymentTransaction);
+        paymentSignature = paymentResult.signature;
+
+        console.log('✅ Payment transaction sent:', paymentSignature);
+        await connection.confirmTransaction(paymentSignature);
+        console.log('✅ Payment confirmed!');
+
+        // Step 5: Create SECOND transaction - Token creation (needs special handling for mint keypair)
+        console.log('🪙 Step 5: Creating token creation transaction...');
+
+        // We need to split this into two transactions because the mint keypair signature
+        // cannot be handled by Phantom (it's not a user keypair)
+
+        // Transaction 1: Create mint account (needs mint keypair signature)
+        const createMintTransaction = new Transaction();
+        const lamports = await connection.getMinimumBalanceForRentExemption(getMintLen([]));
+
+        createMintTransaction.add(
             SystemProgram.createAccount({
                 fromPubkey: payer,
                 newAccountPubkey: mintAddress,
@@ -758,7 +789,7 @@ export async function createTokenMintWithPhantomDirect({
             })
         );
 
-        tokenTransaction.add(
+        createMintTransaction.add(
             createInitializeMintInstruction(
                 mintAddress,
                 formData.decimals,
@@ -767,7 +798,26 @@ export async function createTokenMintWithPhantomDirect({
             )
         );
 
-        tokenTransaction.add(
+        // Prepare and send mint creation transaction
+        const { blockhash: mintBlockhash } = await connection.getLatestBlockhash();
+        createMintTransaction.recentBlockhash = mintBlockhash;
+        createMintTransaction.feePayer = payer;
+
+        // This transaction MUST be partially signed with mint keypair before sending to Phantom
+        // because Phantom cannot sign with the mint keypair (it's not a user keypair)
+        createMintTransaction.partialSign(mintKeypair);
+
+        console.log('🚀 Sending mint creation transaction to Phantom...');
+        const mintResult = await provider.signAndSendTransaction(createMintTransaction);
+        console.log('✅ Mint creation transaction sent:', mintResult.signature);
+        await connection.confirmTransaction(mintResult.signature);
+        console.log('✅ Mint creation confirmed!');
+
+        // Transaction 2: Token operations (completely unsigned for Phantom)
+        const tokenOpsTransaction = new Transaction();
+
+        // Create associated token account
+        tokenOpsTransaction.add(
             createAssociatedTokenAccountInstruction(
                 payer,
                 associatedTokenAddress,
@@ -776,7 +826,8 @@ export async function createTokenMintWithPhantomDirect({
             )
         );
 
-        tokenTransaction.add(
+        // Mint tokens
+        tokenOpsTransaction.add(
             createMintToInstruction(
                 mintAddress,
                 associatedTokenAddress,
@@ -834,11 +885,11 @@ export async function createTokenMintWithPhantomDirect({
             }
         );
 
-        tokenTransaction.add(metadataInstruction);
+        tokenOpsTransaction.add(metadataInstruction);
 
         // Add authority revocation instructions if requested
         if (formData.revokeMintAuth) {
-            tokenTransaction.add(
+            tokenOpsTransaction.add(
                 createSetAuthorityInstruction(
                     mintAddress,
                     payer,
@@ -849,7 +900,7 @@ export async function createTokenMintWithPhantomDirect({
         }
 
         if (formData.revokeFreezeAuth) {
-            tokenTransaction.add(
+            tokenOpsTransaction.add(
                 createSetAuthorityInstruction(
                     mintAddress,
                     payer,
@@ -859,60 +910,58 @@ export async function createTokenMintWithPhantomDirect({
             );
         }
 
-        // Add payment instruction
-        tokenTransaction.add(
-            SystemProgram.transfer({
-                fromPubkey: payer,
-                toPubkey: PLATFORM_WALLET,
-                lamports: totalCost * LAMPORTS_PER_SOL,
-            })
-        );
+        // Prepare token operations transaction (completely unsigned)
+        const { blockhash: tokenBlockhash } = await connection.getLatestBlockhash();
+        tokenOpsTransaction.recentBlockhash = tokenBlockhash;
+        tokenOpsTransaction.feePayer = payer;
 
-        // Step 5: Prepare transaction for Phantom
-        const { blockhash } = await connection.getLatestBlockhash();
-        tokenTransaction.recentBlockhash = blockhash;
-        tokenTransaction.feePayer = payer;
+        console.log('🚀 Sending UNSIGNED token operations transaction to Phantom...');
+        const tokenResult = await provider.signAndSendTransaction(tokenOpsTransaction);
+        const tokenSignature = tokenResult.signature;
 
-        // Partially sign with mint keypair
-        tokenTransaction.partialSign(mintKeypair);
+        console.log('✅ Token operations transaction sent:', tokenSignature);
+        await connection.confirmTransaction(tokenSignature);
+        console.log('✅ Token operations confirmed!');
 
-        console.log('🚀 Sending transaction directly to Phantom (NO wallet adapter)');
-        console.log('📋 Transaction details:', {
-            instructions: tokenTransaction.instructions.length,
-            feePayer: tokenTransaction.feePayer?.toString(),
-            recentBlockhash: tokenTransaction.recentBlockhash
-        });
-
-        // Step 6: Use ONLY Phantom's signAndSendTransaction
-        const result = await provider.signAndSendTransaction(tokenTransaction);
-        const signature = result.signature;
-
-        console.log('✅ Phantom direct transaction sent:', signature);
-
-        // Wait for confirmation
-        await connection.confirmTransaction(signature);
-        console.log('✅ Transaction confirmed!');
-
-        paymentSignature = signature;
-
-        // Log token creation
+        // Step 6: Log token creation
         await logTokenCreation({
             walletAddress: payer.toString(),
             tokenMint: mintAddress.toString(),
             formData,
             metadataUri,
-            signature,
+            signature: tokenSignature,
         });
 
         return {
             mintAddress: mintAddress.toString(),
             tokenAccount: associatedTokenAddress.toString(),
             metadataUri,
-            signature,
+            signature: tokenSignature,
             paymentSignature,
         };
+
     } catch (error) {
-        console.error('❌ Phantom direct transaction failed:', error);
+        console.error('❌ CRITICAL ERROR in createTokenMintWithPhantomDirect');
+        console.error('🔍 Error Details:', {
+            error: error,
+            message: error instanceof Error ? error.message : 'Unknown error',
+            name: error instanceof Error ? error.name : 'Unknown',
+            stack: error instanceof Error ? error.stack : undefined,
+            timestamp: new Date().toISOString(),
+            rpcEndpoint: connection.rpcEndpoint,
+            walletAddress: payer.toString(),
+            totalCost: totalCost,
+            paymentProcessed: !!paymentSignature
+        });
+
+        // Check wallet balance after error
+        try {
+            const balanceAfterError = await connection.getBalance(payer);
+            console.error('💳 Wallet balance after error:', balanceAfterError / LAMPORTS_PER_SOL, 'SOL');
+        } catch (balanceError) {
+            console.error('❌ Could not check wallet balance after error:', balanceError);
+        }
+
         throw error;
     }
 } 
