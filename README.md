@@ -1,4 +1,4 @@
-# 🚀 Solana Token Launcher
+# 🚀 Moonrush - Solana Token Creator
 
 A professional web platform for creating SPL tokens on the Solana blockchain with no coding required. Built with Next.js, TypeScript, and advanced Web3 integrations.
 
@@ -24,7 +24,7 @@ A professional web platform for creating SPL tokens on the Solana blockchain wit
 ### 1. Installation
 ```bash
 git clone <repository-url>
-cd solana-token-launcher
+cd moonrush-token-creator
 npm install
 ```
 
@@ -201,7 +201,7 @@ When enabled, the Custom Creator feature:
 ## 🆘 Troubleshooting
 
 ### Common Issues
-- **"Missing script: dev"**: Make sure you're in the `solana-token-launcher` directory
+- **"Missing script: dev"**: Make sure you're in the `moonrush-token-creator` directory
 - **Database errors**: Delete `tokens.db` to reset schema
 - **IPFS upload fails**: Check API key or switch to placeholder mode
 - **Wallet connection issues**: Refresh page and try again

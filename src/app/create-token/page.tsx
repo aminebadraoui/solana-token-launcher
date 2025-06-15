@@ -160,7 +160,7 @@ function CreateTokenContent() {
             <div className="container mx-auto px-6 py-12">
                 <div className="text-center mb-12">
                     <h1 className="text-5xl font-bold text-primary mb-6">
-                        {isCloneMode ? 'Clone Trending Token' : 'Create Your Solana Token'}
+                        {isCloneMode ? 'Clone Trending Token' : 'Create Your Token'}
                     </h1>
                     <p className="text-xl text-secondary max-w-2xl mx-auto">
                         {isCloneMode

@@ -9,8 +9,17 @@ export function Header() {
     const pathname = usePathname();
     return (
         <nav className="flex justify-between items-center p-6 dark-nav relative z-50">
-            <Link href="/" className="text-2xl font-bold text-primary hover:text-purple-light transition-colors duration-300">
-                Solana Token Launcher
+            <Link href="/" className="group transition-all duration-300 hover:scale-[1.02]">
+                <div className="relative">
+                    <span className="text-3xl font-bold bg-gradient-to-r from-slate-200 via-purple-200 to-slate-300 bg-clip-text text-transparent font-['Michroma'] tracking-wide">
+                        MOON
+                    </span>
+                    <span className="text-3xl font-bold bg-gradient-to-r from-purple-300 via-slate-200 to-purple-200 bg-clip-text text-transparent font-['Michroma'] tracking-wide">
+                        RUSH
+                    </span>
+                    {/* Very subtle glow effect on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-slate-500/10 rounded-lg blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
+                </div>
             </Link>
 
             {/* Navigation Menu */}

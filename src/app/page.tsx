@@ -26,7 +26,7 @@ export default function Home() {
 
   const faqData = [
     {
-      question: "What is Solana Token Launcher?"
+      question: "What is Moonrush?"
     },
     {
       question: "How can I create a token on Solana using your platform?"
@@ -89,7 +89,7 @@ export default function Home() {
           {/* Top Content */}
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-block px-4 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full border border-purple-500/30 mb-4">
-              <span className="text-purple-light font-medium">#1 Solana Token Launcher in the World</span>
+              <span className="text-purple-light font-medium">#1 Solana Token Creator in the World</span>
             </div>
 
             <h1 className="hero-title text-4xl lg:text-5xl text-primary mb-6 leading-tight">
@@ -155,7 +155,7 @@ export default function Home() {
         <div className="text-center mb-16">
           <h2 className="section-title text-5xl text-primary mb-6">
             The world's most powerful
-            <span className="block">Solana <span className="gradient-launcher">Launcher ever.</span></span>
+            <span className="block">Solana <span className="gradient-launcher">Token Creator ever.</span></span>
           </h2>
         </div>
 

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Solana Token Launcher",
-  description: "Create and launch SPL tokens on Solana blockchain",
+  title: "Moonrush - Solana Token Creator",
+  description: "Create and launch SPL tokens on Solana blockchain with Moonrush. Take your token to the moon with our powerful, secure token creation platform.",
 };
 
 export default function RootLayout({
