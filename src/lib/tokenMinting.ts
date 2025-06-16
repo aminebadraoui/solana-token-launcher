@@ -20,7 +20,7 @@ import {
     createCreateMetadataAccountV3Instruction,
     PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID
 } from '@metaplex-foundation/mpl-token-metadata';
-import { shouldUseSecureSigning, getPhantomProvider, logWalletInfo } from './walletUtils';
+import { shouldUseSecureSigning, getProvider, logWalletInfo } from './walletUtils';
 
 // IPFS Gateway configuration
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
@@ -80,14 +80,14 @@ async function executeSecureTransaction(
         console.log('🔒 Using Phantom native signAndSendTransaction (RECOMMENDED by Phantom docs)');
         console.log('✅ This eliminates "malicious app" warnings completely!');
 
-        const provider = getPhantomProvider();
+        const provider = getProvider();
         if (!provider) {
             throw new Error('Phantom provider not available. Please ensure Phantom wallet is installed and connected.');
         }
 
         try {
             // Ensure fee payer is set for Phantom (blockhash should already be set)
-            transaction.feePayer = transaction.feePayer || provider.publicKey;
+            transaction.feePayer = transaction.feePayer || provider.publicKey || undefined;
 
             console.log('📋 Transaction details for Phantom native API:');
             console.log('  - Instructions:', transaction.instructions.length);
@@ -709,7 +709,7 @@ export async function createTokenMintWithPhantomDirect({
     console.log('🔒 Using DIRECT Phantom integration (completely bypassing wallet adapter)');
     console.log('✅ Splitting into SMALL transactions to ensure space for Phantom Lighthouse guards');
 
-    const provider = getPhantomProvider();
+    const provider = getProvider();
     if (!provider) {
         throw new Error('Phantom provider not available');
     }
@@ -765,7 +765,9 @@ export async function createTokenMintWithPhantomDirect({
         paymentSignature = paymentResult.signature;
 
         console.log('✅ Payment confirmed!');
-        await connection.confirmTransaction(paymentSignature);
+        if (paymentSignature) {
+            await connection.confirmTransaction(paymentSignature);
+        }
 
         // Step 5: Mint creation transaction (small, completely unsigned)
         console.log('🪙 Step 5: Creating mint setup transaction (small & unsigned)...');

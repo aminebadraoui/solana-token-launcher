@@ -8,6 +8,7 @@ import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 import { CoinbaseWalletAdapter } from '@solana/wallet-adapter-coinbase';
 import { clusterApiUrl } from '@solana/web3.js';
+import { setupPhantomEventListeners } from '@/lib/walletUtils';
 
 // Import wallet adapter CSS
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -71,6 +72,27 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             customRPC: process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT ? 'Set' : 'Not set'
         });
     }, [network, endpoint]);
+
+    // Setup Phantom event listeners (following official example)
+    useEffect(() => {
+        const cleanup = setupPhantomEventListeners(
+            (publicKey) => {
+                console.log('🔗 Phantom wallet connected:', publicKey.toString());
+            },
+            () => {
+                console.log('👋 Phantom wallet disconnected');
+            },
+            (publicKey) => {
+                if (publicKey) {
+                    console.log('🔄 Phantom account changed to:', publicKey.toString());
+                } else {
+                    console.log('🔄 Phantom account changed - reconnecting...');
+                }
+            }
+        );
+
+        return cleanup; // Cleanup event listeners on unmount
+    }, []);
 
     return (
         <div suppressHydrationWarning>

@@ -1,17 +1,24 @@
 /**
  * Wallet provider utilities for secure transaction signing
+ * Following Phantom's official example patterns
  * Helps resolve Phantom wallet "malicious app" warnings
  */
 
-// Type definitions for Phantom provider
-interface PhantomProvider {
+import { PublicKey } from '@solana/web3.js';
+
+// Type definitions for Phantom provider (matching official example)
+export interface PhantomProvider {
     isPhantom: boolean;
-    publicKey: any;
+    publicKey: PublicKey | null;
     isConnected: boolean;
     signTransaction: (transaction: any) => Promise<any>;
     signAndSendTransaction: (transaction: any) => Promise<{ signature: string }>;
-    connect: () => Promise<{ publicKey: any }>;
+    signAllTransactions: (transactions: any[]) => Promise<any[]>;
+    signMessage: (message: Uint8Array | string) => Promise<{ signature: Uint8Array; publicKey: PublicKey }>;
+    connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: PublicKey }>;
     disconnect: () => Promise<void>;
+    on: (event: string, callback: (...args: any[]) => void) => void;
+    removeListener: (event: string, callback: (...args: any[]) => void) => void;
 }
 
 declare global {
@@ -24,116 +31,182 @@ declare global {
     }
 }
 
-// Cache for wallet detection results to avoid repeated calls
-let walletDetectionCache: {
-    provider: PhantomProvider | null;
-    walletType: string;
-    isPhantom: boolean;
-    supportsSecure: boolean;
-    timestamp: number;
-} | null = null;
-
-const CACHE_DURATION = 1000; // 1 second cache
-
-/**
- * Get cached wallet detection results or compute them fresh
- */
-function getWalletDetection() {
-    const now = Date.now();
-
-    // Return cached results if still valid
-    if (walletDetectionCache && (now - walletDetectionCache.timestamp) < CACHE_DURATION) {
-        return walletDetectionCache;
-    }
-
-    // Compute fresh results
-    const provider = (typeof window !== 'undefined' && window.phantom?.solana)
-        ? window.phantom.solana
-        : null;
-
-    let walletType = 'unknown';
-    if (typeof window !== 'undefined') {
-        if (window.phantom?.solana?.isPhantom) {
-            walletType = 'phantom';
-        } else if (window.solflare) {
-            walletType = 'solflare';
-        } else if (window.coinbaseWalletExtension) {
-            walletType = 'coinbase';
-        }
-    } else {
-        walletType = 'server';
-    }
-
-    const isPhantom = provider?.isPhantom === true;
-    const supportsSecure = !!(provider && typeof provider.signAndSendTransaction === 'function');
-
-    // Cache the results
-    walletDetectionCache = {
-        provider,
-        walletType,
-        isPhantom,
-        supportsSecure,
-        timestamp: now
-    };
-
-    return walletDetectionCache;
-}
-
 /**
  * Get the Phantom wallet provider if available
+ * Following Phantom's official example pattern
  */
-export function getPhantomProvider(): PhantomProvider | null {
-    return getWalletDetection().provider;
+export function getProvider(): PhantomProvider | null {
+    if (typeof window !== 'undefined' && window.phantom?.solana) {
+        return window.phantom.solana;
+    }
+    return null;
 }
 
 /**
- * Check if the current wallet is Phantom
+ * Check if Phantom wallet is available
  */
-export function isPhantomWallet(): boolean {
-    return getWalletDetection().isPhantom;
+export function isPhantomAvailable(): boolean {
+    return !!getProvider();
+}
+
+/**
+ * Check if the current wallet is Phantom and connected
+ */
+export function isPhantomConnected(): boolean {
+    const provider = getProvider();
+    return provider?.isConnected === true;
 }
 
 /**
  * Check if the current wallet supports secure signing (signAndSendTransaction)
  */
 export function supportsSecureSigning(): boolean {
-    return getWalletDetection().supportsSecure;
-}
-
-/**
- * Get the current wallet type for logging/debugging
- */
-export function getWalletType(): string {
-    return getWalletDetection().walletType;
+    const provider = getProvider();
+    return !!(provider && typeof provider.signAndSendTransaction === 'function');
 }
 
 /**
  * Check if we should use secure signing for the current wallet
  */
 export function shouldUseSecureSigning(): boolean {
-    const detection = getWalletDetection();
-    return detection.isPhantom && detection.supportsSecure;
+    const provider = getProvider();
+    return provider?.isPhantom === true && provider?.isConnected === true && supportsSecureSigning();
+}
+
+/**
+ * Get the Phantom wallet provider (alias for compatibility)
+ */
+export const getPhantomProvider = getProvider;
+
+/**
+ * Check if the current wallet is Phantom (alias for compatibility)
+ */
+export function isPhantomWallet(): boolean {
+    return isPhantomAvailable();
+}
+
+/**
+ * Get the current wallet type for logging/debugging
+ */
+export function getWalletType(): string {
+    if (typeof window === 'undefined') return 'server';
+
+    if (window.phantom?.solana?.isPhantom) {
+        return 'phantom';
+    } else if (window.solflare) {
+        return 'solflare';
+    } else if (window.coinbaseWalletExtension) {
+        return 'coinbase';
+    }
+    return 'unknown';
 }
 
 /**
  * Log wallet detection information for debugging
+ * Following Phantom's official example logging patterns
  */
 export function logWalletInfo(): void {
-    const detection = getWalletDetection();
+    const provider = getProvider();
 
     console.log('🔍 Wallet Detection Info:', {
-        walletType: detection.walletType,
-        isPhantom: detection.isPhantom,
-        supportsSecureSigning: detection.supportsSecure,
-        shouldUseSecureSigning: detection.isPhantom && detection.supportsSecure,
-        phantomAvailable: !!detection.provider,
-        phantomConnected: detection.provider?.isConnected
+        walletType: getWalletType(),
+        phantomAvailable: isPhantomAvailable(),
+        phantomConnected: isPhantomConnected(),
+        supportsSecureSigning: supportsSecureSigning(),
+        shouldUseSecureSigning: shouldUseSecureSigning(),
+        publicKey: provider?.publicKey?.toString() || 'Not connected'
     });
 }
 
 /**
- * Clear the wallet detection cache (useful for testing or wallet changes)
+ * Setup Phantom wallet event listeners (following official example)
+ * Call this in your app initialization
  */
-export function clearWalletCache(): void {
-    walletDetectionCache = null;
+export function setupPhantomEventListeners(
+    onConnect?: (publicKey: PublicKey) => void,
+    onDisconnect?: () => void,
+    onAccountChanged?: (publicKey: PublicKey | null) => void
+): () => void {
+    const provider = getProvider();
+
+    if (!provider) {
+        console.warn('⚠️ Phantom provider not available for event listeners');
+        return () => { }; // Return empty cleanup function
+    }
+
+    // Event handlers
+    const handleConnect = (publicKey: PublicKey) => {
+        console.log('✅ Phantom connected:', publicKey.toString());
+        onConnect?.(publicKey);
+    };
+
+    const handleDisconnect = () => {
+        console.log('👋 Phantom disconnected');
+        onDisconnect?.();
+    };
+
+    const handleAccountChanged = (publicKey: PublicKey | null) => {
+        if (publicKey) {
+            console.log('🔄 Phantom account changed:', publicKey.toString());
+        } else {
+            console.log('🔄 Phantom account changed: attempting to reconnect...');
+            // Attempt to reconnect as per official example
+            provider.connect({ onlyIfTrusted: true }).catch(() => {
+                console.log('❌ Failed to reconnect to Phantom');
+            });
+        }
+        onAccountChanged?.(publicKey);
+    };
+
+    // Register event listeners
+    provider.on('connect', handleConnect);
+    provider.on('disconnect', handleDisconnect);
+    provider.on('accountChanged', handleAccountChanged);
+
+    // Return cleanup function
+    return () => {
+        provider.removeListener('connect', handleConnect);
+        provider.removeListener('disconnect', handleDisconnect);
+        provider.removeListener('accountChanged', handleAccountChanged);
+    };
+}
+
+/**
+ * Attempt to connect to Phantom wallet
+ * Following official example patterns
+ */
+export async function connectPhantom(onlyIfTrusted = false): Promise<PublicKey | null> {
+    const provider = getProvider();
+
+    if (!provider) {
+        throw new Error('Phantom wallet not found. Please install Phantom wallet extension.');
+    }
+
+    try {
+        const response = await provider.connect({ onlyIfTrusted });
+        console.log('✅ Connected to Phantom:', response.publicKey.toString());
+        return response.publicKey;
+    } catch (error: any) {
+        console.error('❌ Failed to connect to Phantom:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Disconnect from Phantom wallet
+ */
+export async function disconnectPhantom(): Promise<void> {
+    const provider = getProvider();
+
+    if (!provider) {
+        return; // Already disconnected
+    }
+
+    try {
+        await provider.disconnect();
+        console.log('👋 Disconnected from Phantom');
+    } catch (error: any) {
+        console.error('❌ Failed to disconnect from Phantom:', error.message);
+        throw error;
+    }
 } 

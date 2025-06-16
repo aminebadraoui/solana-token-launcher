@@ -31,13 +31,13 @@ export function Header() {
                 >
                     Home
                 </Link>
-                <Link
+                {/* <Link
                     href="/trending"
                     className={`px-6 py-2 rounded-full text-white hover:bg-white/10 transition-all duration-300 font-medium ${pathname === '/trending' ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 border border-purple-500/50' : ''
                         }`}
                 >
                     🔥 Clone Tokens
-                </Link>
+                </Link> */}
                 <Link
                     href="/create-token"
                     className={`px-6 py-2 rounded-full text-white hover:bg-white/10 transition-all duration-300 font-medium ${pathname === '/create-token' || pathname.startsWith('/create-token') ? 'bg-gradient-to-r from-purple-500/30 to-pink-500/30 border border-purple-500/50' : ''
