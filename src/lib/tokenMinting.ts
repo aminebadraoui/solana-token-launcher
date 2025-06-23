@@ -64,6 +64,23 @@ const PLATFORM_WALLET = new PublicKey(
 );
 
 /**
+ * Check if service fees should be charged based on environment variable
+ * When ENABLE_CHARGE is false in development, skip service fee transactions
+ */
+function shouldChargeServiceFees(): boolean {
+    const enableCharge = process.env.NEXT_PUBLIC_ENABLE_CHARGE;
+    const isDevelopment = process.env.NODE_ENV === 'development';
+
+    // In development, only charge if explicitly enabled
+    if (isDevelopment) {
+        return enableCharge === 'true';
+    }
+
+    // In production, always charge unless explicitly disabled
+    return enableCharge !== 'false';
+}
+
+/**
  * Secure transaction execution that uses Phantom's native signAndSendTransaction when available
  */
 async function executeSecureTransaction(
@@ -386,17 +403,26 @@ export async function createTokenMint({
         }
 
         // Step 5: Add payment instruction to the SAME transaction (ATOMIC)
-        console.log(`💳 Step 5: Adding payment instruction to token transaction (${totalCost} SOL)...`);
-        console.log('🔒 Using ATOMIC transaction - payment and token creation together!');
+        console.log(`💳 Step 5: Checking if service fees should be charged...`);
 
-        // Add payment instruction to the existing token transaction
-        tokenTransaction.add(
-            SystemProgram.transfer({
-                fromPubkey: payer,
-                toPubkey: PLATFORM_WALLET,
-                lamports: totalCost * LAMPORTS_PER_SOL,
-            })
-        );
+        if (shouldChargeServiceFees()) {
+            console.log(`💰 Service fees enabled - Adding payment instruction (${totalCost} SOL)...`);
+            console.log('🔒 Using ATOMIC transaction - payment and token creation together!');
+
+            // Add payment instruction to the existing token transaction
+            tokenTransaction.add(
+                SystemProgram.transfer({
+                    fromPubkey: payer,
+                    toPubkey: PLATFORM_WALLET,
+                    lamports: totalCost * LAMPORTS_PER_SOL,
+                })
+            );
+        } else {
+            console.log('🆓 Service fees disabled in development - Skipping payment to main wallet');
+            console.log('✅ Only Solana network transaction fees will be charged');
+            // Reset totalCost to 0 for logging purposes since no service fee is charged
+            totalCost = 0;
+        }
 
         // Step 6: Prepare transaction with blockhash and fee payer BEFORE signing
         console.log('🚀 Step 6: Preparing atomic transaction (payment + token creation)...');
@@ -499,6 +525,13 @@ async function processPayment(
     sendTransaction: (transaction: Transaction, connection: Connection) => Promise<string>,
     totalCost: number
 ) {
+    // Check if service fees should be charged
+    if (!shouldChargeServiceFees()) {
+        console.log('🆓 Service fees disabled in development - Skipping payment processing');
+        return null; // Return null to indicate no payment was processed
+    }
+
+    console.log(`💰 Processing service fee payment (${totalCost} SOL)...`);
     const transaction = new Transaction().add(
         SystemProgram.transfer({
             fromPubkey: payer,
@@ -745,28 +778,37 @@ export async function createTokenMintWithPhantomDirect({
         );
 
         // Step 4: Payment transaction (small, completely unsigned)
-        console.log('💳 Step 4: Creating payment transaction (small & unsigned)...');
-        const paymentTransaction = new Transaction();
+        console.log('💳 Step 4: Checking if service fees should be charged...');
 
-        paymentTransaction.add(
-            SystemProgram.transfer({
-                fromPubkey: payer,
-                toPubkey: PLATFORM_WALLET,
-                lamports: totalCost * LAMPORTS_PER_SOL,
-            })
-        );
+        if (shouldChargeServiceFees()) {
+            console.log(`💰 Service fees enabled - Creating payment transaction (${totalCost} SOL)...`);
+            const paymentTransaction = new Transaction();
 
-        const { blockhash: paymentBlockhash } = await connection.getLatestBlockhash();
-        paymentTransaction.recentBlockhash = paymentBlockhash;
-        paymentTransaction.feePayer = payer;
+            paymentTransaction.add(
+                SystemProgram.transfer({
+                    fromPubkey: payer,
+                    toPubkey: PLATFORM_WALLET,
+                    lamports: totalCost * LAMPORTS_PER_SOL,
+                })
+            );
 
-        console.log('🚀 Sending small payment transaction to Phantom...');
-        const paymentResult = await provider.signAndSendTransaction(paymentTransaction);
-        paymentSignature = paymentResult.signature;
+            const { blockhash: paymentBlockhash } = await connection.getLatestBlockhash();
+            paymentTransaction.recentBlockhash = paymentBlockhash;
+            paymentTransaction.feePayer = payer;
 
-        console.log('✅ Payment confirmed!');
-        if (paymentSignature) {
-            await connection.confirmTransaction(paymentSignature);
+            console.log('🚀 Sending small payment transaction to Phantom...');
+            const paymentResult = await provider.signAndSendTransaction(paymentTransaction);
+            paymentSignature = paymentResult.signature;
+
+            console.log('✅ Payment confirmed!');
+            if (paymentSignature) {
+                await connection.confirmTransaction(paymentSignature);
+            }
+        } else {
+            console.log('🆓 Service fees disabled in development - Skipping payment to main wallet');
+            console.log('✅ Only Solana network transaction fees will be charged');
+            // Reset totalCost to 0 for logging purposes since no service fee is charged
+            totalCost = 0;
         }
 
         // Step 5: Mint creation transaction (small, completely unsigned)

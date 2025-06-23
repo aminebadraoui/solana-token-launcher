@@ -382,6 +382,9 @@ NEXT_PUBLIC_USE_REAL_IPFS=false
 NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS=your_devnet_wallet
 SOLANA_NETWORK=devnet
 
+# Service fee control - NEW FEATURE
+NEXT_PUBLIC_ENABLE_CHARGE=false
+
 # NFT.Storage not needed in testing mode
 ```
 
@@ -398,6 +401,10 @@ NEXT_PUBLIC_USE_REAL_IPFS=true
 NFT_STORAGE_API_KEY=your_nft_storage_key
 NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS=your_mainnet_wallet
 SOLANA_NETWORK=mainnet-beta
+
+# Service fee control - NEW FEATURE
+# In production, omit this or set to true to enable charging
+# NEXT_PUBLIC_ENABLE_CHARGE=true
 ```
 
 **Benefits:**
@@ -405,6 +412,62 @@ SOLANA_NETWORK=mainnet-beta
 - ✅ Wallet-compatible metadata
 - ✅ Immutable content
 - ✅ Professional appearance
+
+### Service Fee Control (ENABLE_CHARGE)
+
+The `NEXT_PUBLIC_ENABLE_CHARGE` environment variable controls whether service fees are charged to the platform wallet. This is particularly useful for development and testing scenarios.
+
+#### How it Works
+```typescript
+// In tokenMinting.ts
+function shouldChargeServiceFees(): boolean {
+    const enableCharge = process.env.NEXT_PUBLIC_ENABLE_CHARGE;
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    // In development, only charge if explicitly enabled
+    if (isDevelopment) {
+        return enableCharge === 'true';
+    }
+    
+    // In production, always charge unless explicitly disabled
+    return enableCharge !== 'false';
+}
+```
+
+#### Development Behavior
+- **Default**: Service fees are **disabled** in development
+- **Enable fees**: Set `NEXT_PUBLIC_ENABLE_CHARGE=true`
+- **Platform wallet**: No transfers to `HN19yvTd5CCMfsfRuHbUAt4pS3Z5h51zGTTHYivZrxze`
+- **Solana fees**: Normal network transaction fees still apply
+
+#### Production Behavior  
+- **Default**: Service fees are **enabled** in production
+- **Disable fees**: Set `NEXT_PUBLIC_ENABLE_CHARGE=false`
+- **Safety**: Must explicitly disable to prevent accidental revenue loss
+
+#### Implementation Details
+```typescript
+// Payment section in createTokenMint
+if (shouldChargeServiceFees()) {
+    console.log(`💰 Service fees enabled - Adding payment instruction (${totalCost} SOL)...`);
+    tokenTransaction.add(
+        SystemProgram.transfer({
+            fromPubkey: payer,
+            toPubkey: PLATFORM_WALLET,
+            lamports: totalCost * LAMPORTS_PER_SOL,
+        })
+    );
+} else {
+    console.log('🆓 Service fees disabled in development - Skipping payment to main wallet');
+    console.log('✅ Only Solana network transaction fees will be charged');
+}
+```
+
+**Use Cases:**
+- **Development testing**: Test token creation without service fees
+- **Demo environments**: Show functionality without charging users  
+- **Emergency disable**: Quickly disable fees in production if needed
+- **Feature development**: Work on new features without payment concerns
 
 ### Getting NFT.Storage API Key
 
