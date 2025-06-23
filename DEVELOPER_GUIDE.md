@@ -382,8 +382,9 @@ NEXT_PUBLIC_USE_REAL_IPFS=false
 NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS=your_devnet_wallet
 SOLANA_NETWORK=devnet
 
-# Service fee control - NEW FEATURE
+# Feature control - NEW FEATURES
 NEXT_PUBLIC_ENABLE_CHARGE=false
+NEXT_PUBLIC_ENABLE_TRENDING_FEATURE=true
 
 # NFT.Storage not needed in testing mode
 ```
@@ -402,9 +403,11 @@ NFT_STORAGE_API_KEY=your_nft_storage_key
 NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS=your_mainnet_wallet
 SOLANA_NETWORK=mainnet-beta
 
-# Service fee control - NEW FEATURE
+# Feature control - NEW FEATURES
 # In production, omit this or set to true to enable charging
 # NEXT_PUBLIC_ENABLE_CHARGE=true
+# In production, omit this or set to true to show trending feature
+# NEXT_PUBLIC_ENABLE_TRENDING_FEATURE=true
 ```
 
 **Benefits:**
@@ -413,13 +416,19 @@ SOLANA_NETWORK=mainnet-beta
 - ✅ Immutable content
 - ✅ Professional appearance
 
-### Service Fee Control (ENABLE_CHARGE)
+### Feature Control Environment Variables
+
+#### Service Fee Control (ENABLE_CHARGE)
 
 The `NEXT_PUBLIC_ENABLE_CHARGE` environment variable controls whether service fees are charged to the platform wallet. This is particularly useful for development and testing scenarios.
 
-#### How it Works
+#### Trending Feature Control (ENABLE_TRENDING_FEATURE) 
+
+The `NEXT_PUBLIC_ENABLE_TRENDING_FEATURE` environment variable controls whether the "🔥 Clone Tokens" link appears in the navigation header.
+
+#### How They Work
 ```typescript
-// In tokenMinting.ts
+// Service fees control
 function shouldChargeServiceFees(): boolean {
     const enableCharge = process.env.NEXT_PUBLIC_ENABLE_CHARGE;
     const isDevelopment = process.env.NODE_ENV === 'development';
@@ -431,6 +440,20 @@ function shouldChargeServiceFees(): boolean {
     
     // In production, always charge unless explicitly disabled
     return enableCharge !== 'false';
+}
+
+// Trending feature visibility control  
+function shouldShowTrendingFeature(): boolean {
+    const enableTrending = process.env.NEXT_PUBLIC_ENABLE_TRENDING_FEATURE;
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    // In development, show by default unless explicitly disabled
+    if (isDevelopment) {
+        return enableTrending !== 'false';
+    }
+    
+    // In production, hide by default unless explicitly enabled
+    return enableTrending === 'true';
 }
 ```
 

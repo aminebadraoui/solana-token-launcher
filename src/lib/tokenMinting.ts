@@ -63,22 +63,8 @@ const PLATFORM_WALLET = new PublicKey(
     process.env.NEXT_PUBLIC_PLATFORM_WALLET_ADDRESS || '11111111111111111111111111111112'
 );
 
-/**
- * Check if service fees should be charged based on environment variable
- * When ENABLE_CHARGE is false in development, skip service fee transactions
- */
-function shouldChargeServiceFees(): boolean {
-    const enableCharge = process.env.NEXT_PUBLIC_ENABLE_CHARGE;
-    const isDevelopment = process.env.NODE_ENV === 'development';
-
-    // In development, only charge if explicitly enabled
-    if (isDevelopment) {
-        return enableCharge === 'true';
-    }
-
-    // In production, always charge unless explicitly disabled
-    return enableCharge !== 'false';
-}
+// Import centralized feature flags
+import { shouldChargeServiceFees } from './featureFlags';
 
 /**
  * Secure transaction execution that uses Phantom's native signAndSendTransaction when available
