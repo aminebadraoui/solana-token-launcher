@@ -391,9 +391,13 @@ export async function createTokenMint({
         // Step 5: Add payment instruction to the SAME transaction (ATOMIC)
         console.log(`💳 Step 5: Checking if service fees should be charged...`);
 
-        if (shouldChargeServiceFees()) {
+        const shouldCharge = shouldChargeServiceFees();
+        console.log(`💰 Service fee decision: ${shouldCharge ? 'CHARGE' : 'SKIP'}`);
+
+        if (shouldCharge) {
             console.log(`💰 Service fees enabled - Adding payment instruction (${totalCost} SOL)...`);
             console.log('🔒 Using ATOMIC transaction - payment and token creation together!');
+            console.log(`💸 Payment details: ${totalCost} SOL (${totalCost * LAMPORTS_PER_SOL} lamports) to ${PLATFORM_WALLET.toString()}`);
 
             // Add payment instruction to the existing token transaction
             tokenTransaction.add(
@@ -403,8 +407,10 @@ export async function createTokenMint({
                     lamports: totalCost * LAMPORTS_PER_SOL,
                 })
             );
+
+            console.log(`✅ Payment instruction added. Transaction now has ${tokenTransaction.instructions.length} instructions`);
         } else {
-            console.log('🆓 Service fees disabled in development - Skipping payment to main wallet');
+            console.log('🆓 Service fees disabled - Skipping payment to main wallet');
             console.log('✅ Only Solana network transaction fees will be charged');
             // Reset totalCost to 0 for logging purposes since no service fee is charged
             totalCost = 0;

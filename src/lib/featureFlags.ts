@@ -27,13 +27,25 @@ export function shouldChargeServiceFees(): boolean {
     const enableCharge = process.env.NEXT_PUBLIC_ENABLE_CHARGE;
     const isDevelopment = process.env.NODE_ENV === 'development';
 
+    // Debug logging for production troubleshooting
+    console.log('🏁 Service Fee Check:', {
+        environment: process.env.NODE_ENV,
+        isDevelopment,
+        enableChargeEnvVar: enableCharge,
+        enableChargeType: typeof enableCharge
+    });
+
     // In development, only charge if explicitly enabled
     if (isDevelopment) {
-        return enableCharge === 'true';
+        const result = enableCharge === 'true';
+        console.log(`🔧 Development mode: Service fees ${result ? 'ENABLED' : 'DISABLED'}`);
+        return result;
     }
 
     // In production, always charge unless explicitly disabled
-    return enableCharge !== 'false';
+    const result = enableCharge !== 'false';
+    console.log(`🔧 Production mode: Service fees ${result ? 'ENABLED' : 'DISABLED'}`);
+    return result;
 }
 
 /**
