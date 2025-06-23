@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
-import { shouldEnableCloneFeature, logFeatureFlags } from '@/lib/featureFlags';
-
 // Global image cache to persist across re-renders
 const imageCache = new Map<string, {
     status: 'loading' | 'loaded' | 'error',
@@ -210,13 +208,7 @@ export default function TrendingPage() {
     const [hasMore, setHasMore] = useState(true);
     const [sortBy, setSortBy] = useState<'marketCap' | 'recent'>('recent');
     const [lastCacheTimestamp, setLastCacheTimestamp] = useState<string | null>(null);
-    const [isCloneFeatureEnabled, setIsCloneFeatureEnabled] = useState(false);
-
     useEffect(() => {
-        // Initialize feature flags
-        setIsCloneFeatureEnabled(shouldEnableCloneFeature());
-        logFeatureFlags();
-
         fetchTrendingTokens(1, true);
     }, []);
 
