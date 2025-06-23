@@ -759,20 +759,39 @@ export async function createTokenMintWithPhantomDirect({
         console.log('✅ Metadata uploaded:', metadataUri);
 
         // Step 2: Create mint keypair
+        console.log('🔑 Step 2: Generating mint keypair...');
         const mintKeypair = Keypair.generate();
         const mintAddress = mintKeypair.publicKey;
         console.log('📍 Mint Address:', mintAddress.toString());
+        console.log('✅ Step 2 completed successfully');
 
         // Step 3: Get associated token account address
+        console.log('🏦 Step 3: Getting associated token account address...');
+        console.log('🔍 Payer address:', payer.toString());
+        console.log('🔍 Mint address:', mintAddress.toString());
+
         const associatedTokenAddress = await getAssociatedTokenAddress(
             mintAddress,
             payer
         );
 
+        console.log('📍 Associated Token Address:', associatedTokenAddress.toString());
+        console.log('✅ Step 3 completed successfully');
+
         // Step 4: Payment transaction (small, completely unsigned)
+        console.log('💳 Step 4: Starting payment transaction step...');
         console.log('💳 Step 4: Checking if service fees should be charged...');
 
-        if (shouldChargeServiceFees()) {
+        let shouldCharge;
+        try {
+            shouldCharge = shouldChargeServiceFees();
+            console.log(`💰 Service fee decision: ${shouldCharge ? 'CHARGE' : 'SKIP'}`);
+        } catch (feeCheckError) {
+            console.error('❌ Error checking service fees:', feeCheckError);
+            throw feeCheckError;
+        }
+
+        if (shouldCharge) {
             console.log(`💰 Service fees enabled - Creating payment transaction (${totalCost} SOL)...`);
             const paymentTransaction = new Transaction();
 
