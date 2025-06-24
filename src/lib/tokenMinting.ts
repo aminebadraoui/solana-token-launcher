@@ -48,6 +48,10 @@ interface TokenFormData {
     revokeUpdateAuth: boolean;
     customCreator: boolean;
     creatorAddress: string;
+    // Social links for extensions field
+    website?: string;
+    twitter?: string;
+    telegram?: string;
 }
 
 interface CreateTokenParams {
@@ -575,6 +579,12 @@ async function uploadToPinata(formData: TokenFormData): Promise<string> {
             });
         }
 
+        // Prepare extensions object for social links
+        const extensions: Record<string, string> = {};
+        if (formData.website) extensions.website = formData.website;
+        if (formData.twitter) extensions.twitter = formData.twitter;
+        if (formData.telegram) extensions.telegram = formData.telegram;
+
         // Create metadata object (without image URI initially)
         const metadata = {
             name: formData.name,
@@ -586,6 +596,8 @@ async function uploadToPinata(formData: TokenFormData): Promise<string> {
                 creators: creators.length > 0 ? creators : undefined,
             },
             ...(creators.length > 0 && { creators }),
+            // Add extensions field for social links (required by DEX platforms like Photon)
+            ...(Object.keys(extensions).length > 0 && { extensions }),
         };
 
         // Use server-side API route to upload both image and metadata
@@ -648,6 +660,12 @@ async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string>
         });
     }
 
+    // Prepare extensions object for social links
+    const extensions: Record<string, string> = {};
+    if (formData.website) extensions.website = formData.website;
+    if (formData.twitter) extensions.twitter = formData.twitter;
+    if (formData.telegram) extensions.telegram = formData.telegram;
+
     // Create metadata object with placeholder URIs
     const metadata = {
         name: formData.name,
@@ -667,6 +685,8 @@ async function uploadToPlaceholderIPFS(formData: TokenFormData): Promise<string>
         },
         // Include creators at root level as well (Metaplex standard)
         ...(creators.length > 0 && { creators }),
+        // Add extensions field for social links (required by DEX platforms like Photon)
+        ...(Object.keys(extensions).length > 0 && { extensions }),
     };
 
     console.log('📋 Generated placeholder metadata:', metadata);

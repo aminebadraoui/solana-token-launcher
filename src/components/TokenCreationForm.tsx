@@ -458,6 +458,10 @@ export function TokenCreationForm({ cloneData, isCloneMode = false }: TokenCreat
                 formData: {
                     ...formData,
                     customCreator: showCreatorInfo, // Use the toggle state
+                    // Map social links to correct field names for metadata
+                    website: formData.websiteLink,
+                    twitter: formData.twitterLink,
+                    telegram: formData.telegramLink,
                 },
                 totalCost: calculateTotalCost()
             });
