@@ -21,6 +21,7 @@ import {
     PROGRAM_ID as TOKEN_METADATA_PROGRAM_ID
 } from '@metaplex-foundation/mpl-token-metadata';
 import { shouldUseSecureSigning, getProvider, logWalletInfo } from './walletUtils';
+import { AuthService } from './auth';
 
 // IPFS Gateway configuration
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
@@ -706,6 +707,28 @@ async function logTokenCreation(data: {
     signature: string;
 }) {
     try {
+        // Try to get user profile and log to Supabase if configured
+        const userProfile = await AuthService.getUserProfile(data.walletAddress);
+        if (userProfile) {
+            const supabaseSuccess = await AuthService.logTokenCreation(userProfile, {
+                mintAddress: data.tokenMint,
+                tokenName: data.formData.name,
+                tokenSymbol: data.formData.symbol,
+                tokenDescription: data.formData.description,
+                metadataUri: data.metadataUri,
+                transactionSignature: data.signature,
+            });
+
+            if (supabaseSuccess) {
+                console.log('✅ Token creation logged to Supabase successfully');
+            } else {
+                console.warn('⚠️ Failed to log to Supabase, falling back to local API');
+            }
+        } else {
+            console.log('ℹ️ Supabase not configured or user not found, using local API only');
+        }
+
+        // Also log to the existing API for backwards compatibility
         const response = await fetch('/api/log-token', {
             method: 'POST',
             headers: {
@@ -733,7 +756,9 @@ async function logTokenCreation(data: {
         });
 
         if (!response.ok) {
-            console.error('Failed to log token creation');
+            console.error('Failed to log token creation to local API');
+        } else {
+            console.log('✅ Token creation logged to local API successfully');
         }
     } catch (error) {
         console.error('Error logging token creation:', error);

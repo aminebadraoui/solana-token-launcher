@@ -96,6 +96,7 @@ body {
 .text-secondary { color: var(--text-secondary); }
 .text-muted { color: var(--text-muted); }
 .border-subtle { border-color: var(--border-subtle); }
+.purple-light { color: var(--purple-light); }
 
 /* Modern Typography with Michroma */
 .hero-title {
@@ -142,3 +143,6 @@ body {
   background-clip: text;
   font-family: 'Michroma', monospace;
 }
+
+/* Utility Classes */
+.text-purple-light { color: var(--purple-light); }

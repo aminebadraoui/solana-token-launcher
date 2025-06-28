@@ -2,23 +2,23 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { NoSSRWrapper } from '@/components/WalletContextProvider';
 import { Header } from '@/components/Header';
 
 export default function Home() {
+  const router = useRouter();
+  const { connected } = useWallet();
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
-  const [isScrolled, setIsScrolled] = useState(false);
 
+  // Redirect to dashboard when wallet is connected
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY;
-      setIsScrolled(scrollPosition > 100); // Show sticky header after scrolling 100px
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    if (connected) {
+      router.push('/dashboard');
+    }
+  }, [connected, router]);
 
   const toggleFAQ = (index: number) => {
     setOpenFAQ(openFAQ === index ? null : index);
@@ -56,21 +56,6 @@ export default function Home() {
       {/* Navigation */}
       <Header />
 
-      {/* Sticky Header - appears on scroll */}
-      <div className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 transform ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
-        }`}>
-        <div className="bg-black/80 backdrop-blur-md border-b border-gray-700/50 px-6 py-4">
-          <div className="container mx-auto flex justify-center">
-            <Link
-              href="/create-token"
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-lg text-sm hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105"
-            >
-              Create your first Token
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* Hero Section with Moon Background */}
       <div className="relative overflow-hidden min-h-screen flex flex-col">
         {/* Background Image */}
@@ -103,13 +88,14 @@ export default function Home() {
             </p>
 
             <div className="flex justify-center mb-8">
-              <Link
-                href="/create-token"
-                className="inline-block bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-4 px-8 rounded-lg text-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105"
-              >
-                Create your first Token
-              </Link>
+              <NoSSRWrapper>
+                <WalletMultiButton className="!bg-gradient-to-r !from-purple-500 !to-pink-500 !text-white !font-bold !py-4 !px-8 !rounded-lg !text-lg hover:!from-purple-600 hover:!to-pink-600 !transition-all !duration-300 !transform hover:!scale-105" />
+              </NoSSRWrapper>
             </div>
+
+            <p className="text-sm text-muted">
+              Connect your wallet to access the dashboard and start creating tokens
+            </p>
           </div>
 
           {/* iPhone Image at bottom of hero */}

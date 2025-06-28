@@ -17,6 +17,8 @@
 /.next/
 /out/
 
+/.cursor/
+
 # production
 /build
 
@@ -61,6 +63,9 @@ node_modules/
 *.sln
 *.sw?
 # OS specific
+
+.env
+
 # Task files
-tasks.json
-tasks/ 
+# tasks.json
+# tasks/ 

@@ -23,6 +23,7 @@
     "@solana/wallet-adapter-react-ui": "^0.9.38",
     "@solana/wallet-adapter-solflare": "^0.6.31",
     "@solana/web3.js": "^1.98.2",
+    "@supabase/supabase-js": "^2.50.2",
     "@types/ioredis": "^4.28.10",
     "dotenv": "^16.5.0",
     "formdata-node": "^6.0.3",

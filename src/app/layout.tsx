@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { WalletContextProvider } from '@/components/WalletContextProvider';
+import { UserProvider } from '@/lib/userContext';
 // import { WalletDebug } from '@/components/WalletDebug';
 
 const geist = Geist({
@@ -30,8 +31,10 @@ export default function RootLayout({
         className={`${geist.variable} ${geistMono.variable} antialiased`}
       >
         <WalletContextProvider>
-          {children}
-          {/* <WalletDebug /> */}
+          <UserProvider>
+            {children}
+            {/* <WalletDebug /> */}
+          </UserProvider>
         </WalletContextProvider>
       </body>
     </html>

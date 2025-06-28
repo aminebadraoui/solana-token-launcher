@@ -4,9 +4,11 @@ import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
 import { useState, useEffect, Suspense } from 'react';
+import { useUser } from '@/lib/userContext';
 
 function SuccessPageContent() {
     const searchParams = useSearchParams();
+    const { refreshUserData } = useUser();
     const [tokenData, setTokenData] = useState<any>(null);
 
     useEffect(() => {
@@ -23,6 +25,9 @@ function SuccessPageContent() {
                 symbol,
                 signature,
             });
+
+            // Refresh user data to include the newly created token
+            refreshUserData();
         }
     }, [searchParams]);
 
@@ -193,12 +198,32 @@ function SuccessPageContent() {
                             </a>
                         </div>
 
-                        {/* Step 3: Marketing & Community */}
+                        {/* Step 3: Go to Dashboard */}
                         <div className="dark-card rounded-lg p-6 border border-green-500/30">
                             <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+                                <span className="text-2xl">🏠</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-primary mb-3">3. Manage in Dashboard</h3>
+                            <p className="text-secondary text-sm mb-4">
+                                View your token in your dashboard and manage all your created tokens.
+                            </p>
+                            <Link
+                                href="/dashboard/tokens"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            >
+                                Go to Dashboard
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </Link>
+                        </div>
+
+                        {/* Step 4: Marketing & Community */}
+                        <div className="dark-card rounded-lg p-6 border border-yellow-500/30">
+                            <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center mb-4">
                                 <span className="text-2xl">🌟</span>
                             </div>
-                            <h3 className="text-xl font-bold text-primary mb-3">3. Build Community</h3>
+                            <h3 className="text-xl font-bold text-primary mb-3">4. Build Community</h3>
                             <p className="text-secondary text-sm mb-4">
                                 Promote your token and build a strong community around it.
                             </p>
