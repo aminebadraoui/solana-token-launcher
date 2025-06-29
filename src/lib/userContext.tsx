@@ -37,6 +37,35 @@ export function UserProvider({ children }: UserProviderProps) {
     const [isLoading, setIsLoading] = useState(false);
     const isSupabaseEnabled = isSupabaseConfigured();
 
+    // Load persisted user data on mount
+    useEffect(() => {
+        const loadPersistedData = () => {
+            try {
+                const savedUser = localStorage.getItem('moonrush_user');
+                const savedProfile = localStorage.getItem('moonrush_profile');
+                const savedTokens = localStorage.getItem('moonrush_tokens');
+
+                if (savedUser) {
+                    setUser(JSON.parse(savedUser));
+                }
+                if (savedProfile) {
+                    setSupabaseProfile(JSON.parse(savedProfile));
+                }
+                if (savedTokens) {
+                    setUserTokens(JSON.parse(savedTokens));
+                }
+            } catch (error) {
+                console.error('Error loading persisted user data:', error);
+                // Clear corrupted data
+                localStorage.removeItem('moonrush_user');
+                localStorage.removeItem('moonrush_profile');
+                localStorage.removeItem('moonrush_tokens');
+            }
+        };
+
+        loadPersistedData();
+    }, []);
+
     const refreshUserData = async () => {
         if (!publicKey || !connected) {
             setUser(null);
@@ -65,6 +94,10 @@ export function UserProvider({ children }: UserProviderProps) {
                         // Load user tokens
                         const tokens = await AuthService.getUserTokens(profile);
                         setUserTokens(tokens);
+
+                        // Persist Supabase data
+                        localStorage.setItem('moonrush_profile', JSON.stringify(profile));
+                        localStorage.setItem('moonrush_tokens', JSON.stringify(tokens));
                     }
                 } catch (error) {
                     console.error('Supabase authentication error:', error);
@@ -75,6 +108,9 @@ export function UserProvider({ children }: UserProviderProps) {
             }
 
             setUser(userData);
+
+            // Persist user data to localStorage
+            localStorage.setItem('moonrush_user', JSON.stringify(userData));
         } catch (error) {
             console.error('Error refreshing user data:', error);
         } finally {
@@ -87,6 +123,11 @@ export function UserProvider({ children }: UserProviderProps) {
         setUser(null);
         setSupabaseProfile(null);
         setUserTokens([]);
+
+        // Clear persisted data
+        localStorage.removeItem('moonrush_user');
+        localStorage.removeItem('moonrush_profile');
+        localStorage.removeItem('moonrush_tokens');
     };
 
     // Effect to handle wallet connection changes
@@ -97,6 +138,11 @@ export function UserProvider({ children }: UserProviderProps) {
             setUser(null);
             setSupabaseProfile(null);
             setUserTokens([]);
+
+            // Clear persisted data when wallet disconnects
+            localStorage.removeItem('moonrush_user');
+            localStorage.removeItem('moonrush_profile');
+            localStorage.removeItem('moonrush_tokens');
         }
     }, [connected, publicKey?.toString(), isSupabaseEnabled]);
 

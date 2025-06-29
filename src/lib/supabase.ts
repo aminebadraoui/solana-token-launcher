@@ -36,4 +36,15 @@ export interface UserToken {
     metadata_uri?: string;
     created_at: string;
     transaction_signature?: string;
+}
+
+export interface UserWallet {
+    id: string;
+    user_id: string;
+    name: string;
+    public_key: string;
+    encrypted_private_key: string;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
 } 

@@ -107,6 +107,11 @@ export class AuthService {
      * Update user's token count
      */
     static async updateTokenCount(walletAddress: string, increment: number = 1): Promise<boolean> {
+        if (!isSupabaseConfigured() || !supabase) {
+            console.warn('Supabase is not configured. Token count update will be skipped.');
+            return false;
+        }
+
         try {
             const { error } = await supabase.rpc('increment_token_count', {
                 wallet_addr: walletAddress,

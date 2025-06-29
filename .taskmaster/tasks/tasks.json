@@ -48,6 +48,85 @@
         ],
         "status": "pending",
         "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Multi-Wallet Management System",
+        "description": "Develop a feature that allows authenticated users to create and manage between 1 and 10 wallets with secure public/private key management, integrated with Supabase.",
+        "details": "This task involves creating a multi-wallet management system where users can create, delete, import, and export wallets. Each wallet will have a generated public and private key pair, with private keys stored securely using strong encryption (e.g., AES-256). The implementation should include: \n1. UI integration within the dashboard for wallet management (creation, deletion, import/export). \n2. Backend functions that generate key pairs, handle secure encryption and decryption, and store wallet data in Supabase. \n3. Use environment variables to manage encryption keys and ensure private keys are never stored in plaintext. \n4. Proper error handling and validation to restrict wallet creation to a maximum of 10 per user. \n5. Integration with the existing Supabase authentication (from Task 2 and Task 4) to ensure that wallet operations are only available for authenticated users.",
+        "testStrategy": "Test end-to-end by logging in as a user, then attempt to: (1) create wallets until reaching the limit, verifying that further creation is prevented; (2) confirm that each wallet has a valid public key and an encrypted private key (by checking the data in Supabase); (3) execute wallet deletion, import, and export flows while ensuring that encryption remains intact; (4) simulate error scenarios such as duplicate wallet names or invalid key import data; and (5) validate that all wallet management functions are only accessible to authenticated users.",
+        "status": "in-progress",
+        "dependencies": [
+          2,
+          4
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design UI Components for Multi-Wallet Management",
+            "description": "Develop the user interface for wallet creation, deletion, import, and export within the dashboard.",
+            "dependencies": [],
+            "details": "Design wireframes and prototypes focused on usability, ensuring the components are responsive and integrate seamlessly with the existing dashboard design.\n<info added on 2025-06-28T05:37:31.060Z>\nUI Components Implementation Complete:\n- Developed a comprehensive WalletManager React component that integrates wallet creation, import, and management forms.\n- Implemented a wallet list with inline editing, secure private key viewing toggle, and export/delete actions.\n- Updated the database schema to use a proper user_id foreign key relationship and modified WalletManager methods to operate with user_id instead of wallet_address.\n- Integrated UI components into the existing dashboard navigation and styling, incorporating lucide-react icons for consistency.\n- Added robust error handling, loading states, and responsive design matching the dashboard theme.\nKey Features:\n- Create up to 10 wallets per user.\n- Import existing wallets using a private key.\n- Secure private key viewing with a toggle option.\n- Wallet name editing with duplicate validation.\n- Export wallet data (public key only for security).\n- Soft delete functionality.\n- Real-time display of wallet count and wallet limit.\nReady for database integration testing.\n</info added on 2025-06-28T05:37:31.060Z>\n<info added on 2025-06-28T05:48:00.839Z>\nMajor Improvements Made:\n- Fixed all button click handlers using proper event handling (e.preventDefault()).\n- Added comprehensive error handling and real-time user feedback.\n- Implemented a bulk wallet creation feature, allowing users to create 1-10 wallets at once with custom names.\n- Enhanced form validation and added loading states for better UX.\n- Corrected async operations with proper await/async usage.\n- Upgraded UI design with consistent styling, gradients, hover effects, and smooth transitions.\n\nNew Features Added:\n1. Bulk Create Wallets – facilitates creating multiple wallets in one go.\n2. Enhanced Forms – utilizes proper form submission and validation.\n3. Improved Error Handling – clear error messages with automatic clearing.\n4. Enhanced User Experience – includes loading states, disabled buttons during processing, and progress feedback.\n5. Modernized UI – integrated consistent design elements with gradients and transitions.\n\nKey Fixes:\n- All buttons now execute correct form submission handling.\n- Wallet creation (single, import, and bulk) functions smoothly.\n- Successful database operations trigger an automatic wallet list reload.\n- The private key visibility toggle functions securely and reliably.\n</info added on 2025-06-28T05:48:00.839Z>\n<info added on 2025-06-29T02:55:34.901Z>\nNavigation Issue Fix: Resolved an error where the \"Create Your First Token\" button was redirecting to the landing page due to the use of a standard HTML anchor tag. The <a> tag in src/app/dashboard/tokens/page.tsx was replaced with a Next.js <Link> component, ensuring client-side navigation within the dashboard. The button now correctly navigates to the create-token page without causing a full page refresh, maintaining a seamless dashboard experience.\n</info added on 2025-06-29T02:55:34.901Z>",
+            "status": "done",
+            "testStrategy": "Perform unit testing on components and end-to-end testing to verify UI behavior."
+          },
+          {
+            "id": 2,
+            "title": "Develop Backend Key Generation and Secure Encryption Functions",
+            "description": "Implement functions to generate public/private key pairs and securely encrypt private keys using AES-256.",
+            "dependencies": [],
+            "details": "Create backend services to handle cryptographic operations. Use proper key management practices with environment variables for encryption key storage.\n<info added on 2025-06-28T05:09:49.045Z>\nBackend implementation is now complete. The WalletManager class has been fully developed with comprehensive CRUD operations, implementing AES-256 encryption for private key storage. Secure key generation, import functionality, and wallet validation—including enforcement of a maximum of 10 wallets per user—are now operational. The Supabase schema has been extended with a new user_wallets table along with added database constraints, indexes, triggers, and Row Level Security policies. Additional security measures include unique wallet name constraints per user, soft delete capabilities via an is_active flag, and comprehensive error handling. The backend is now ready for the frontend UI implementation phase.\n</info added on 2025-06-28T05:09:49.045Z>",
+            "status": "done",
+            "testStrategy": "Unit test cryptographic functions with various input scenarios and verify that encryption/decryption works as expected."
+          },
+          {
+            "id": 3,
+            "title": "Integrate Wallet Data Storage with Supabase",
+            "description": "Set up database schema and integrate wallet storage functionalities with Supabase.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Develop functions to store wallet information securely in Supabase, ensuring that private keys are stored encrypted. Build endpoints that the UI can call to manage wallets.",
+            "status": "pending",
+            "testStrategy": "Conduct integration tests between the backend and Supabase, checking data consistency and encryption integrity."
+          },
+          {
+            "id": 4,
+            "title": "Implement Wallet Limit Validation",
+            "description": "Enforce a rule that restricts each user to a maximum of 10 wallets.",
+            "dependencies": [
+              3
+            ],
+            "details": "Add validation logic on both the client and server sides to ensure that no authenticated user can create more than 10 wallets. Provide appropriate feedback if the limit is reached.",
+            "status": "pending",
+            "testStrategy": "Test validation by attempting to add wallets beyond the limit and ensuring proper error messages are returned."
+          },
+          {
+            "id": 5,
+            "title": "Integrate Supabase Authentication for Wallet Operations",
+            "description": "Ensure that wallet creation, deletion, import, and export operations are only accessible to authenticated users.",
+            "dependencies": [
+              3
+            ],
+            "details": "Leverage existing Supabase authentication integration to gate wallet management features. Design middleware or interceptors as needed.",
+            "status": "pending",
+            "testStrategy": "Verify authentication flow and role-based access control through unit and integration tests using simulated authenticated and unauthenticated scenarios."
+          },
+          {
+            "id": 6,
+            "title": "Implement Comprehensive Error Handling and Environment Variable Management",
+            "description": "Add robust error handling for all wallet management operations and manage encryption keys through environment variables.",
+            "dependencies": [
+              2,
+              5
+            ],
+            "details": "Ensure that all failures in wallet operations (e.g., key generation, encryption, database failures) are caught and logged properly. Configure environment variables securely for encryption keys and other sensitive information.",
+            "status": "pending",
+            "testStrategy": "Perform tests that simulate failure scenarios to verify that errors are handled gracefully and that secure configuration values are never exposed."
+          }
+        ]
       }
     ],
     "metadata": {
@@ -57,7 +136,7 @@
       "currentTag": "master",
       "created": "2025-06-28T02:45:28.491Z",
       "description": "Tasks for master context",
-      "updated": "2025-06-28T04:09:13.913Z"
+      "updated": "2025-06-28T05:38:02.602Z"
     }
   }
 }

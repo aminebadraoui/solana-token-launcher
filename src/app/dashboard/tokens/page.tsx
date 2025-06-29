@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useUser } from '@/lib/userContext';
+import Link from 'next/link';
 
 export default function TokensPage() {
     const { userTokens, refreshUserData } = useUser();
@@ -200,12 +201,12 @@ export default function TokensPage() {
                             : 'Try adjusting your filters to see more tokens.'}
                     </p>
                     {userTokens.length === 0 && (
-                        <a
+                        <Link
                             href="/dashboard/create-token"
                             className="inline-block bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium py-3 px-6 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105"
                         >
                             Create Your First Token
-                        </a>
+                        </Link>
                     )}
                 </div>
             )}

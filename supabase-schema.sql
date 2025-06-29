@@ -32,12 +32,30 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     CONSTRAINT mint_address_format CHECK (length(mint_address) >= 32)
 );
 
+-- Create user_wallets table for multi-wallet management
+CREATE TABLE IF NOT EXISTS user_wallets (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    public_key TEXT NOT NULL UNIQUE,
+    encrypted_private_key TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT true,
+    CONSTRAINT user_wallet_name_unique UNIQUE (user_id, name, is_active),
+    CONSTRAINT wallet_name_length CHECK (length(name) >= 1 AND length(name) <= 50),
+    CONSTRAINT public_key_format CHECK (length(public_key) >= 32)
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_user_profiles_wallet_address ON user_profiles(wallet_address);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_created_at ON user_profiles(created_at);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_user_id ON user_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_mint_address ON user_tokens(mint_address);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_created_at ON user_tokens(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_wallets_user_id ON user_wallets(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_wallets_public_key ON user_wallets(public_key);
+CREATE INDEX IF NOT EXISTS idx_user_wallets_active ON user_wallets(user_id, is_active);
 
 -- Create a function to increment token count
 CREATE OR REPLACE FUNCTION increment_token_count(wallet_addr TEXT, increment_by INTEGER DEFAULT 1)
@@ -69,9 +87,43 @@ CREATE TRIGGER update_user_profiles_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_user_wallets_updated_at 
+    BEFORE UPDATE ON user_wallets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Create function to enforce wallet limit (max 10 active wallets per user)
+CREATE OR REPLACE FUNCTION check_wallet_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+    wallet_count INTEGER;
+BEGIN
+    -- Only check on INSERT and when is_active is true
+    IF TG_OP = 'INSERT' AND NEW.is_active = true THEN
+        SELECT COUNT(*) INTO wallet_count
+        FROM user_wallets
+        WHERE user_id = NEW.user_id
+        AND is_active = true;
+        
+        IF wallet_count >= 10 THEN
+            RAISE EXCEPTION 'Maximum wallet limit (10) reached for user %', NEW.user_id;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger for wallet limit enforcement
+CREATE TRIGGER enforce_wallet_limit 
+    BEFORE INSERT ON user_wallets 
+    FOR EACH ROW 
+    EXECUTE FUNCTION check_wallet_limit();
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_wallets ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for user_profiles
 -- Users can read their own profile
@@ -94,6 +146,23 @@ CREATE POLICY "Users can view own tokens" ON user_tokens
 -- Users can insert their own tokens
 CREATE POLICY "Users can insert own tokens" ON user_tokens
     FOR INSERT WITH CHECK (true); -- Allow insert for all for now
+
+-- Create RLS policies for user_wallets
+-- Users can read their own wallets
+CREATE POLICY "Users can view own wallets" ON user_wallets
+    FOR SELECT USING (true); -- Allow read access to all for now
+
+-- Users can insert their own wallets
+CREATE POLICY "Users can insert own wallets" ON user_wallets
+    FOR INSERT WITH CHECK (true); -- Allow insert for all for now
+
+-- Users can update their own wallets
+CREATE POLICY "Users can update own wallets" ON user_wallets
+    FOR UPDATE USING (true); -- Allow update for all for now
+
+-- Users can delete their own wallets
+CREATE POLICY "Users can delete own wallets" ON user_wallets
+    FOR DELETE USING (true); -- Allow delete for all for now
 
 -- Create a view for user statistics
 CREATE OR REPLACE VIEW user_stats AS
@@ -120,8 +189,10 @@ GROUP BY up.id, up.wallet_address, up.username, up.created_at, up.last_login, up
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON user_profiles TO anon, authenticated;
 GRANT ALL ON user_tokens TO anon, authenticated;
+GRANT ALL ON user_wallets TO anon, authenticated;
 GRANT SELECT ON user_stats TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION increment_token_count TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION check_wallet_limit TO anon, authenticated;
 
 -- Success message
 SELECT 'Moonrush Token Creator database schema created successfully!' as status; 
