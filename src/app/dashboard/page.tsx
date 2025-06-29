@@ -34,26 +34,7 @@ export default function Dashboard() {
         },
     ];
 
-    const stats = [
-        {
-            name: 'Total Tokens Created',
-            value: user?.totalTokensCreated || 0,
-            icon: '🪙',
-            color: 'from-purple-500 to-pink-500',
-        },
-        {
-            name: 'Active Wallets',
-            value: publicKey ? 1 : 0,
-            icon: '👛',
-            color: 'from-blue-500 to-purple-500',
-        },
-        {
-            name: 'Success Rate',
-            value: '100%',
-            icon: '📈',
-            color: 'from-green-500 to-blue-500',
-        },
-    ];
+
 
     return (
         <div className="h-full flex flex-col space-y-8">
@@ -65,25 +46,7 @@ export default function Dashboard() {
                 </p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {stats.map((stat) => (
-                    <div
-                        key={stat.name}
-                        className="dark-card rounded-xl p-6 hover:scale-105 transition-all duration-300 hover:shadow-lg border border-white/5"
-                    >
-                        <div className="flex items-center">
-                            <div className={`flex-shrink-0 rounded-lg bg-gradient-to-r ${stat.color} p-3`}>
-                                <span className="text-2xl">{stat.icon}</span>
-                            </div>
-                            <div className="ml-4 flex-1">
-                                <p className="text-sm font-medium text-secondary">{stat.name}</p>
-                                <p className="text-2xl font-bold text-primary">{stat.value}</p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
+
 
             {/* Quick Actions */}
             <div className="flex-1">
