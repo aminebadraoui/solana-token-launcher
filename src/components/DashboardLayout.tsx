@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/lib/userContext';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { NoSSRWrapper } from '@/components/WalletContextProvider';
+import { Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -14,7 +16,35 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
     const pathname = usePathname();
     const { user, logout, userTokens } = useUser();
+    const { publicKey, connected } = useWallet();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [balance, setBalance] = useState<number>(0);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!connected || !publicKey) {
+            setBalance(0);
+            return;
+        }
+
+        const loadBalance = async () => {
+            setLoading(true);
+            try {
+                const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
+                const connection = new Connection(endpoint, 'confirmed');
+                const balanceInLamports = await connection.getBalance(publicKey);
+                const balanceInSol = balanceInLamports / LAMPORTS_PER_SOL;
+                setBalance(balanceInSol);
+            } catch (error) {
+                console.error('Error loading balance:', error);
+                setBalance(0);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadBalance();
+    }, [connected, publicKey?.toString()]);
 
     const navigationItems = [
         {
@@ -168,6 +198,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     <div className="flex flex-1 justify-end gap-x-4 self-stretch lg:gap-x-6">
                         <div className="flex items-center gap-x-4 lg:gap-x-6">
                             <NoSSRWrapper>
+                                {connected && publicKey && (
+                                    <div className="flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-sm text-gray-300">Balance:</span>
+                                            {loading ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 border-b border-purple-500"></div>
+                                            ) : (
+                                                <span className="text-sm font-semibold text-white">
+                                                    {balance.toFixed(4)} SOL
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                                 <WalletMultiButton className="!bg-gradient-to-r !from-purple-500 !to-pink-500 !text-white !font-medium !py-2 !px-4 !rounded-lg hover:!from-purple-600 hover:!to-pink-600 !transition-all !duration-300 !transform hover:!scale-105" />
                             </NoSSRWrapper>
                         </div>

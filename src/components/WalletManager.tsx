@@ -264,11 +264,23 @@ export function WalletManager({ className = '' }: WalletManagerProps) {
     const isMainnet = process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'MAINNET';
 
     const loadConnectedWalletBalance = async () => {
-        if (!publicKey) return;
+        if (!publicKey) {
+            console.log('🔧 WalletManager: No public key for connected wallet balance');
+            return;
+        }
 
         try {
+            console.log('🔧 WalletManager: Loading connected wallet balance for:', publicKey.toString());
+            console.log('🔧 WalletManager: Using endpoint:', endpoint);
+
             const balance = await connection.getBalance(publicKey);
             const balanceInSOL = balance / LAMPORTS_PER_SOL;
+
+            console.log('🔧 WalletManager: Connected wallet balance loaded:', {
+                lamports: balance,
+                sol: balanceInSOL
+            });
+
             setConnectedWalletBalance(balanceInSOL);
 
             // Set as default distribution amount if not already set
@@ -276,31 +288,58 @@ export function WalletManager({ className = '' }: WalletManagerProps) {
                 setDistributionAmount(balanceInSOL.toFixed(4));
             }
         } catch (error) {
-            console.error('Error fetching connected wallet balance:', error);
+            console.error('❌ WalletManager: Error fetching connected wallet balance:', error);
+            console.error('❌ WalletManager: Balance error details:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                endpoint,
+                publicKey: publicKey.toString()
+            });
         }
     };
 
     const loadWalletBalances = async () => {
-        if (!wallets.length) return;
+        if (!wallets.length) {
+            console.log('🔧 WalletManager: No wallets to load balances for');
+            return;
+        }
 
         try {
+            console.log('🔧 WalletManager: Loading balances for', wallets.length, 'wallets');
+            console.log('🔧 WalletManager: Using endpoint:', endpoint);
+
             setIsLoadingBalances(true);
             const balances: { [key: string]: number } = {};
 
             for (const wallet of wallets) {
                 try {
+                    console.log('🔧 WalletManager: Loading balance for wallet:', wallet.name, wallet.public_key);
+
                     const publicKey = new PublicKey(wallet.public_key);
                     const balance = await connection.getBalance(publicKey);
-                    balances[wallet.id] = balance / LAMPORTS_PER_SOL;
+                    const balanceInSOL = balance / LAMPORTS_PER_SOL;
+
+                    console.log('🔧 WalletManager: Balance loaded for', wallet.name, ':', {
+                        lamports: balance,
+                        sol: balanceInSOL
+                    });
+
+                    balances[wallet.id] = balanceInSOL;
                 } catch (error) {
-                    console.error(`Error fetching balance for wallet ${wallet.name}:`, error);
+                    console.error(`❌ WalletManager: Error fetching balance for wallet ${wallet.name}:`, error);
+                    console.error('❌ WalletManager: Wallet balance error details:', {
+                        walletName: wallet.name,
+                        publicKey: wallet.public_key,
+                        message: error instanceof Error ? error.message : 'Unknown error',
+                        endpoint
+                    });
                     balances[wallet.id] = 0;
                 }
             }
 
+            console.log('🔧 WalletManager: All balances loaded:', balances);
             setWalletBalances(balances);
         } catch (error) {
-            console.error('Error loading wallet balances:', error);
+            console.error('❌ WalletManager: Error loading wallet balances:', error);
             setError('Failed to load wallet balances');
         } finally {
             setIsLoadingBalances(false);

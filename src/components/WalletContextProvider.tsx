@@ -72,12 +72,43 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
     // Add connection debugging
     useEffect(() => {
         console.log('🔧 Wallet Context Configuration:', {
-            network,
-            endpoint,
+            network: network,
+            endpoint: endpoint,
             nodeEnv: process.env.NODE_ENV,
             solanaNetwork: process.env.NEXT_PUBLIC_SOLANA_NETWORK,
             customRPC: process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT ? 'Set' : 'Not set'
         });
+
+        // Test the RPC endpoint
+        const testConnection = async () => {
+            try {
+                console.log('🔧 Testing RPC endpoint:', endpoint);
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getVersion',
+                        params: []
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('✅ RPC endpoint test successful:', data);
+            } catch (error) {
+                console.error('❌ RPC endpoint test failed:', error);
+                console.error('❌ This may cause balance loading issues');
+            }
+        };
+
+        testConnection();
     }, [network, endpoint]);
 
     // Setup Phantom event listeners (following official example)
