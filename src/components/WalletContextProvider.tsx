@@ -30,6 +30,13 @@ export function NoSSRWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export function WalletContextProvider({ children }: { children: React.ReactNode }) {
+    const [mounted, setMounted] = useState(false);
+
+    // Handle client-side mounting to prevent hydration mismatch
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Switch network based on environment variable
     const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'MAINNET'
         ? WalletAdapterNetwork.Mainnet
@@ -106,7 +113,7 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
             >
                 <WalletProvider
                     wallets={wallets}
-                    autoConnect={false} // Disable autoConnect to prevent hydration mismatch
+                    autoConnect={mounted} // Only autoConnect after client-side mounting
                     onError={(error) => {
                         console.error('❌ Wallet connection error:', {
                             error,
