@@ -127,6 +127,61 @@
             "testStrategy": "Perform tests that simulate failure scenarios to verify that errors are handled gracefully and that secure configuration values are never exposed."
           }
         ]
+      },
+      {
+        "id": 6,
+        "title": "Update Dashboard Navigation Menu",
+        "description": "Revise the dashboard navigation menu to reflect the new structure including Dashboard, Create Token, Create Liquidity, Pump, a visual separator, My Wallets, My Tokens, and Logout.",
+        "details": "Implement the updated navigation menu by reordering the existing items and inserting a visual separator between 'Pump' and 'My Wallets'. Ensure that each menu item is styled consistently with the current design language (as established in Task 1) and integrates well with the modern components updated in Task 3. Use Tailwind CSS styling for proper spacing and hover effects. Verify that the separator is visually distinct and does not interfere with the functionality of adjacent menu items. Update the routing configuration to correspond to the new menu structure and ensure that the active state is clearly indicated.",
+        "testStrategy": "Perform a visual review of the updated navigation on various screen sizes to ensure consistent design and proper spacing. Test each menu item to confirm that the correct route is activated upon click, and verify that the separator is distinctly rendered without functional interference. Use browser developer tools to ensure no CSS conflicts, and run manual routing tests to validate navigation behavior.",
+        "status": "done",
+        "dependencies": [
+          1,
+          3
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Redesign Create Token Page with Prominent CTAs",
+        "description": "Revamp the Create Token page to feature two dominant, vertically stacked buttons that distinctly guide users to either create a token from scratch or clone a trending token.",
+        "details": "Implement a new design for the Create Token page where two large buttons are stacked vertically. The first button should be labeled 'Create Token From Scratch' and the second 'Clone Trending Token'. Each button must be styled with modern UI elements (consistent with Task 3's updated dashboard components) and use Tailwind CSS for spacing, hover effects, and responsiveness. The button interactions should provide clear visual feedback and redirect users to their respective functionalities, integrating seamlessly with the dashboard flow updated in Task 6. Ensure the page layout is mobile-responsive and adheres to accessibility guidelines.",
+        "testStrategy": "Review the Create Token page across multiple devices and screen sizes to verify that exactly two large, vertically aligned buttons are present with appropriate spacing and hover effects. Click each button to ensure that they redirect to the correct workflows with clear and immediate feedback. Additionally, perform an accessibility audit to confirm color contrast and interactive states meet standards, and ensure consistency with the newer UI designs detailed in Task 3 and the navigation structure from Task 6.",
+        "status": "done",
+        "dependencies": [
+          3,
+          6
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Create Liquidity Page for Raydium Launch",
+        "description": "Develop a new page that either displays a button or automatically redirects users to https://raydium.io, opening the link in a new browser tab.",
+        "details": "Implement a minimalistic 'Create Liquidity' page that fulfills the external redirection requirement. The page should include either a clearly visible button labeled 'Launch Raydium' or be set up to automatically redirect after a brief delay. Use window.open() in JavaScript to open the provided URL in a new tab with proper target attributes (e.g., target='_blank' with rel='noopener noreferrer' for security). Ensure consistency with the app’s overall design guidelines by applying Tailwind CSS classes. Additionally, handle any potential errors (e.g., popup blockers) gracefully by falling back to displaying an informative message and a manual redirection button. Integrate this page link into the updated dashboard navigation menu as per Task 6 to ensure a unified user experience.",
+        "testStrategy": "Verify that navigating to the 'Create Liquidity' page either shows a prominent 'Launch Raydium' button or automatically redirects to https://raydium.io in a new tab. Test on various browsers to ensure the new tab behavior works consistently and that the appropriate security attributes are applied. If a button is used, verify that clicking it triggers the new tab to open with the targeted URL. Also, confirm that any potential errors, such as blocked popups, are caught and properly handled with a clear message and fallback mechanism.",
+        "status": "done",
+        "dependencies": [
+          6
+        ],
+        "priority": "low",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Automated Pump Feature for Token Buy Orders",
+        "description": "Develop and integrate a pump feature that automates buy orders for user-created tokens using generated wallets at random intervals, while providing a configuration page for pump settings.",
+        "details": "Create a new dashboard page where users can configure pump settings to automate buy orders for tokens. This page should allow users to: (1) select tokens from their list of created tokens, (2) choose one or more wallets (from the Multi-Wallet Management System implemented in Task 5) to execute transactions, (3) set specific buy amounts, and (4) configure random timing intervals for the automated orders. Ensure secure API calls for order placement and incorporate error handling and validations. Integrate the pump page into the dashboard navigation (as reflected in Task 6), using consistent design elements and Tailwind CSS for styling. Consider including a simulation mode for testing pump parameters before live activation.",
+        "testStrategy": "Verify that the pump configuration page is accessible through the dashboard navigation. Test that the form correctly populates with the list of created tokens and available wallets from Task 5. Validate that users can enter custom buy amounts and random intervals, and that appropriate error messages appear for invalid inputs. Simulate pump transactions to ensure that buy orders are triggered at random intervals as configured, and monitor backend logs for expected API requests. Additionally, test the simulation mode to confirm that the pump settings perform as expected without executing real orders.",
+        "status": "pending",
+        "dependencies": [
+          5,
+          6
+        ],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
@@ -136,7 +191,7 @@
       "currentTag": "master",
       "created": "2025-06-28T02:45:28.491Z",
       "description": "Tasks for master context",
-      "updated": "2025-06-28T05:38:02.602Z"
+      "updated": "2025-06-29T22:45:04.214Z"
     }
   }
 }

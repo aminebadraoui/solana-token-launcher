@@ -67,34 +67,51 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             ),
         },
         {
-            name: 'Clone Token',
-            href: '/dashboard/clone-token',
+            name: 'Create Liquidity',
+            href: '/dashboard/create-liquidity',
             icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
             ),
         },
         {
-            name: 'My Wallets',
-            href: '/dashboard/wallets',
+            name: 'Pump',
+            href: '/dashboard/pump',
             icon: (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
             ),
-        },
-        {
-            name: 'My Tokens',
-            href: '/dashboard/tokens',
-            icon: (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-            ),
-            badge: userTokens.length > 0 ? userTokens.length : undefined,
         },
     ];
+
+    const userNavigationItems: Array<{
+        name: string;
+        href: string;
+        icon: React.ReactElement;
+        badge?: number;
+    }> = [
+            {
+                name: 'My Wallets',
+                href: '/dashboard/wallets',
+                icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                ),
+            },
+            {
+                name: 'My Tokens',
+                href: '/dashboard/tokens',
+                icon: (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                ),
+                badge: userTokens.length > 0 ? userTokens.length : undefined,
+            },
+        ];
 
     return (
         <div className="h-screen w-full dark-gradient-bg flex">
@@ -138,7 +155,35 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {/* Navigation */}
                 <nav className="mt-4 px-2 flex-1 overflow-y-auto">
                     <ul className="space-y-1">
+                        {/* Main navigation items */}
                         {navigationItems.map((item) => {
+                            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
+                            return (
+                                <li key={item.name}>
+                                    <Link
+                                        href={item.href}
+                                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${isActive
+                                            ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-primary border-r-2 border-purple-500 scale-105'
+                                            : 'text-secondary hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-pink-500/10 hover:text-primary hover:scale-105'
+                                            }`}
+                                        onClick={() => setIsSidebarOpen(false)}
+                                    >
+                                        <span className={`flex-shrink-0 transition-colors duration-300 ${isActive ? 'text-purple-400' : 'text-secondary group-hover:text-purple-400'}`}>
+                                            {item.icon}
+                                        </span>
+                                        <span className="ml-3">{item.name}</span>
+                                    </Link>
+                                </li>
+                            );
+                        })}
+
+                        {/* Separator */}
+                        <li className="py-2">
+                            <div className="border-t border-white/10"></div>
+                        </li>
+
+                        {/* User navigation items */}
+                        {userNavigationItems.map((item) => {
                             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
                             return (
                                 <li key={item.name}>

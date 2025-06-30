@@ -463,7 +463,7 @@ export default function TrendingPage() {
                                     {/* Action Button - Always at bottom */}
                                     <div className="mt-auto">
                                         <Link
-                                            href={`/create-token?clone=${token.mintAddress}`}
+                                            href={`/dashboard/create-token/scratch?clone=${token.mintAddress}`}
                                             className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all duration-300 text-center text-sm block"
                                         >
                                             🚀 Clone for <span className="line-through opacity-60">0.1 SOL</span> <span className="text-green-300 font-bold">FREE</span>
